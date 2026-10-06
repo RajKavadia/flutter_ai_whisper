@@ -1,0 +1,39 @@
+# flutter_ai_whisper — Cursor Agent Guide
+
+MCP server that inspects and mutates the state of a running Flutter app over the
+Dart VM Service.
+
+**Read `AGENTS.md` first — it is the canonical guide** covering architecture,
+the four MCP tools, platform differences, expression rules, state-management
+specifics, and the development workflow. This file adds Cursor-specific notes
+only.
+
+## Project facts
+
+- Dart CLI speaking MCP on `stdio`. No Flutter dependency.
+- `bin/main.dart` registers the four tools; handlers live in `lib/tools/`.
+- `lib/vm_bridge.dart` owns the VM Service connection and `evaluate`.
+- `lib/state_discoverer.dart` owns discovery and expression probing.
+
+## Rules that cause real bugs
+
+- Call `connect_to_app` first. The URI has a per-run auth code.
+- The app URL (`http://localhost:PORT/`) is the static web server, not the VM
+  Service. Use the `ws://127.0.0.1:PORT/AUTHCODE=/ws` line from `flutter run`.
+- Flutter Web cannot enumerate state — no `getClassList`, no `dart:mirrors`.
+  Pass `expressions` instead, derived from the app's source.
+- Prefer `expression` over `targetExpression`/`newValueExpression`; the latter
+  builds `target = value` and fails on `final`.
+- `evaluate` accepts one expression, not statements. Use an IIFE.
+- Private members require `libraryUri` pointing at their declaring library.
+
+## Verify
+
+```console
+dart analyze && dart test
+```
+
+## Safety
+
+Executes arbitrary Dart in the app process. Development only — never point it at
+a production build or an untrusted app.

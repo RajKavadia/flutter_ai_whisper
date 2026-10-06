@@ -1,0 +1,11 @@
+name: flutter_ai_whisper_example
+description: Demonstrates driving a running Flutter app with the flutter_ai_whisper server.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter

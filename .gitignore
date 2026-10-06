@@ -1,0 +1,20 @@
+# Files and directories
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local scratch — profiling output, ad-hoc probes against a live app.
+*.log
+probe.dart
+e2e.dart
+tmp/
