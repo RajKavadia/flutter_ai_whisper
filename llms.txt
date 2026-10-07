@@ -233,7 +233,28 @@ private, so it is invisible from the root library.
 
 **`setState` is asynchronous.** It marks the element dirty and rebuilds on the
 next frame; it does not run `build()` inline. Reading a build counter straight
-after will show the *old* value. Wait a frame before verifying.
+after will show the *old* value.
+
+**`setState` on an offstage element is deferred.** If the page you are mutating
+is covered by another route, the write lands and the variable reads back
+changed, but no rebuild happens until that element reactivates — so the screen
+looks unchanged and the build counter stays frozen. This is Flutter's normal
+`markNeedsBuild` behaviour, not a failed injection. Check where you are before
+concluding anything:
+
+```dart
+int homePages = 0;
+Element? active;
+void walk(Element e) {
+  if (e.widget is HomePage) { homePages++; active ??= e; }
+  e.visitChildren(walk);
+}
+walk(WidgetsBinding.instance.rootElement!);
+// homePages > 1  => several copies exist; only the active one repaints.
+```
+
+Pop back to the route first, then inject. A rebuild lands a frame or two after
+the call, so **poll** rather than sleeping a fixed amount before asserting.
 
 Verify the view actually changed, not just the variable — walk the element tree
 and read the `Text` widgets:

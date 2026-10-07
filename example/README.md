@@ -149,8 +149,9 @@ Two rules that save a wasted attempt:
 - **Plain writes do not update the screen.** Wrap them in `setState`. GetX `Rx`,
   Riverpod, Bloc and `ChangeNotifier` notify themselves and need nothing extra.
 
-`setState` rebuilds on the next frame, so wait briefly before checking that the
-view changed.
+`setState` rebuilds on the next frame, so poll briefly before checking that the
+view changed. It is also deferred entirely while the page is offstage under
+another route — pop back to it first, or the write will land without repainting.
 
 ## Next steps
 

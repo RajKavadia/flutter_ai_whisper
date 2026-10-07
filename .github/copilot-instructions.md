@@ -30,8 +30,8 @@ dependency** — do not add one.
 - **Mutating an object does not update the view.** Plain fields need an explicit
   `setState` (mutate inside it); GetX `Rx`, Riverpod, Bloc and
   `ValueNotifier`/`ChangeNotifier` notify themselves. `setState` rebuilds on the
-  next frame, not inline — wait a frame before verifying, and check the rendered
-  `Text` widgets rather than re-reading the variable.
+  next frame, not inline, and is **deferred entirely** when the page is offstage
+  under another route — check where you are and poll for the rebuild.
 - **You can only reach what the object exposes.** A read-only getter with no
   setter cannot be assigned, however good the injection is.
 - **Prefer `expression` over `target`/`value`.** The pair builds `target = value`

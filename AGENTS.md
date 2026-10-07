@@ -203,7 +203,25 @@ Requires `libraryUri` pointing at the declaring library, because `_HomePageState
 is private.
 
 **`setState` rebuilds on the next frame, not inline.** Reading a build counter
-immediately after still shows the old value — wait a frame before verifying.
+immediately after still shows the old value.
+
+**`setState` on an offstage element is deferred.** If the page is covered by
+another route, the write lands and the variable reads back changed, but nothing
+repaints until that element reactivates. The screen looks unchanged and the build
+counter stays frozen — a false negative, not a failed injection. Count matching
+elements to check for duplicate copies:
+
+```dart
+int homePages = 0;
+void walk(Element e) {
+  if (e.widget is HomePage) homePages++;
+  e.visitChildren(walk);
+}
+walk(WidgetsBinding.instance.rootElement!);
+```
+
+Pop back to the route before injecting, and **poll** for the rebuild rather than
+sleeping a fixed amount.
 
 Confirm the view changed by walking the element tree and reading `Text` widgets,
 not by re-reading the variable.

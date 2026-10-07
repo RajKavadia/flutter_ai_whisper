@@ -30,8 +30,9 @@ dependency** — do not add one.
 - **Mutating an object does not update the view.** Plain fields need an explicit
   `setState` (mutate inside it); GetX `Rx`, Riverpod, Bloc and
   `ValueNotifier`/`ChangeNotifier` notify themselves. `setState` rebuilds on the
-  next frame, not inline — wait a frame before verifying, and check the rendered
-  `Text` widgets rather than re-reading the variable.
+  next frame, not inline, and is **deferred entirely** when the page is offstage
+  under another route — check where you are, poll for the rebuild, and assert
+  against the rendered `Text` widgets rather than re-reading the variable.
 - **You can only reach what the object exposes.** `AppState.counter` has a
   getter but no setter, so you can only call `incrementCounter()`. Read the class
   before concluding a value is unsettable.

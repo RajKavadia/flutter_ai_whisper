@@ -44,6 +44,7 @@ If a change touches any of these, every file above must be updated:
 - `evaluate` takes one expression, not statements.
 - Private members require `libraryUri` — fields, classes and methods alike.
 - Mutating an object does not update the view; plain fields need `setState`,
-  and it rebuilds on the next frame rather than inline.
+  and it rebuilds on the next frame rather than inline — and is deferred
+  entirely when the page is offstage under another route.
 - You can only reach what the object exposes; a getter with no setter cannot
   be assigned.

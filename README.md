@@ -301,6 +301,12 @@ Two things to expect: `setState` schedules the rebuild for the **next frame**,
 so it is not visible immediately; and it needs `libraryUri` when the `State`
 class is private.
 
+Also note `setState` is **deferred entirely when the page is offstage** under
+another route. The write lands and the variable reads back changed, but nothing
+repaints until that element reactivates — so a covered page looks unchanged.
+Pop back to the route before injecting, and poll for the rebuild rather than
+sleeping a fixed amount.
+
 Verify against the rendered tree rather than the variable:
 
 ```dart

@@ -29,8 +29,10 @@ file adds Cursor-specific notes only.
   compile without `libraryUri` pointing at their declaring library.
 - Mutating an object does **not** update the view. Plain objects need `setState`
   (mutate inside it); GetX `Rx`, Riverpod, Bloc and `ValueNotifier` self-notify.
-- `setState` rebuilds on the **next frame**, not inline — wait a frame, then
-  assert against the rendered `Text` widgets, not the variable.
+- `setState` rebuilds on the **next frame**, not inline — and is deferred
+  entirely when the page is offstage under another route, so a covered page looks
+  unchanged until you pop back. Poll, then assert against the rendered `Text`
+  widgets, not the variable.
 - You can only reach what the object exposes. A getter with no setter cannot be
   assigned, even with perfect injection.
 - Flutter Web cannot enumerate state — no `getClassList`, no `dart:mirrors`.
