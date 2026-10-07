@@ -57,10 +57,9 @@ Future<CallToolResult> triggerRouteNavigation(
         template.replaceAll('ROUTE', quoted),
       );
 
-      final out =
-          response is ErrorRef
-              ? 'eval-error: ${response.message ?? "unknown"}'
-              : (response as InstanceRef).valueAsString ?? '';
+      final out = response is ErrorRef
+          ? 'eval-error: ${response.message ?? "unknown"}'
+          : (response as InstanceRef).valueAsString ?? '';
 
       if (out == 'ok') {
         return CallToolResult(

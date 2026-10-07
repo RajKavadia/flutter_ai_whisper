@@ -40,7 +40,10 @@ Future<CallToolResult> connectToApp(
                 '${failures.isEmpty ? '' : '${failures.join("\n")}\n\n'}'
                 'No running apps were found via the Dart Tooling Daemon.\n\n'
                 'Make sure the app is running in debug mode with `flutter run`, '
-                'then retry, or pass the ws:// URI printed by `flutter run`.',
+                'then retry. Apps started outside `flutter run` or an IDE are '
+                'not discoverable; for those, pass `vmUri` explicitly — take it '
+                'from the "linked to the debug service" line, which includes the '
+                'auth code that the bare app URL omits.',
           ),
         ],
         isError: true,

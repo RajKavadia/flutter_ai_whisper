@@ -2,7 +2,7 @@ name: flutter_ai_whisper
 description: >-
   MCP server that inspects and injects state in a running Flutter app over the
   Dart VM Service, supporting route navigation and Riverpod, Bloc and GetX.
-version: 1.0.0
+version: 1.1.0
 
 repository: https://github.com/RajKavadia/flutter_ai_whisper
 issue_tracker: https://github.com/RajKavadia/flutter_ai_whisper/issues
@@ -20,8 +20,9 @@ executables:
   flutter_ai_whisper: main
 
 environment:
-  # vm_service 15.x and mcp_server 2.x both require Dart 3.7+.
-  sdk: ^3.7.0
+  # mcp_server 2.x needs Dart 3.7+ at runtime; lints 6 needs 3.8 as a dev
+  # dependency. Taking the higher of the two keeps `dart pub get` satisfiable.
+  sdk: ^3.8.0
 
 dependencies:
   args: ^2.5.0
@@ -31,5 +32,5 @@ dependencies:
   vm_service: ^15.3.0
 
 dev_dependencies:
-  lints: ^5.0.0
+  lints: ^6.0.0
   test: ^1.25.0

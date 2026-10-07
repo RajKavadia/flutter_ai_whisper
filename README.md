@@ -18,7 +18,7 @@ against an unmodified app.
 
 ## Requirements
 
-- Dart SDK `^3.7.0` (for the server itself).
+- Dart SDK `^3.8.0` (for the server itself).
 - A Flutter app running in **debug mode** with the VM Service enabled. Both
   `flutter run` and `flutter run -d chrome` qualify; profile and release builds
   do not expose it.

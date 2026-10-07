@@ -8,14 +8,16 @@ inclusion: always
 
 | Item | Value |
 | --- | --- |
-| Language | Dart `^3.7.0` |
+| Language | Dart `^3.8.0` |
 | Package type | Pure Dart CLI — **no Flutter dependency** |
 | Executable | `flutter_ai_whisper` → `bin/main.dart` |
 | License | MIT |
 | Topics | `mcp`, `flutter`, `developer-tools`, `vm-service`, `debugging` |
 
-The `^3.7.0` floor is not arbitrary: `vm_service` 15.x and `mcp_server` 2.x both
-require Dart 3.7 or newer.
+The `^3.8.0` floor is the higher of two constraints, not an arbitrary choice:
+`mcp_server` 2.x requires Dart 3.7 at runtime, while `lints` 6 requires 3.8 as a
+dev dependency. Taking 3.8 keeps `dart pub get` satisfiable without pinning the
+floor below what the tooling needs.
 
 ## Dependencies
 

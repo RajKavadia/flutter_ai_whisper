@@ -27,26 +27,24 @@ Future<CallToolResult> listActiveStateHolders(
     results.addAll(await discoverer.discoverStateHolders());
 
     final filter = args['filter'] as String?;
-    final filtered =
-        filter == null || filter.isEmpty
-            ? results
-            : results
-                .where(
-                  (h) => '${h['name'] ?? h['expression'] ?? ''}'
-                      .toLowerCase()
-                      .contains(filter.toLowerCase()),
-                )
-                .toList();
+    final filtered = filter == null || filter.isEmpty
+        ? results
+        : results
+              .where(
+                (h) => '${h['name'] ?? h['expression'] ?? ''}'
+                    .toLowerCase()
+                    .contains(filter.toLowerCase()),
+              )
+              .toList();
 
     if (filtered.isEmpty) {
-      final hint =
-          bridge.supportsClassList
-              ? 'No state holders matched. Try a `filter`, or pass `expressions` '
-                  'such as ["counterCubit.count"].'
-              : 'Automatic enumeration is unavailable on Flutter Web, so nothing '
-                  'was found. Read the app source for top-level state objects '
-                  'and pass `expressions`, e.g. '
-                  '["counterCubit.count", "authNotifier.isLoggedIn"].';
+      final hint = bridge.supportsClassList
+          ? 'No state holders matched. Try a `filter`, or pass `expressions` '
+                'such as ["counterCubit.count"].'
+          : 'Automatic enumeration is unavailable on Flutter Web, so nothing '
+                'was found. Read the app source for top-level state objects '
+                'and pass `expressions`, e.g. '
+                '["counterCubit.count", "authNotifier.isLoggedIn"].';
       return CallToolResult(content: [TextContent(text: hint)]);
     }
 
@@ -62,10 +60,9 @@ Future<CallToolResult> listActiveStateHolders(
       }
     }
 
-    final footer =
-        bridge.supportsClassList
-            ? ''
-            : '\n\n(note: Flutter Web — supply `expressions` to inspect named state)';
+    final footer = bridge.supportsClassList
+        ? ''
+        : '\n\n(note: Flutter Web — supply `expressions` to inspect named state)';
 
     return CallToolResult(content: [TextContent(text: '$json$footer')]);
   } catch (e) {

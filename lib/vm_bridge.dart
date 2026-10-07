@@ -85,12 +85,11 @@ class VmBridge {
         return lib.id!;
       }
     }
-    final available =
-        (isolate.libraries ?? const <LibraryRef>[])
-            .map((l) => l.uri)
-            .whereType<String>()
-            .where((u) => !u.startsWith('dart:'))
-            .toList();
+    final available = (isolate.libraries ?? const <LibraryRef>[])
+        .map((l) => l.uri)
+        .whereType<String>()
+        .where((u) => !u.startsWith('dart:'))
+        .toList();
     throw StateError(
       'No library in the isolate matches "$libraryUri".\n'
       'App libraries: ${available.join(", ")}',
@@ -169,9 +168,11 @@ class VmBridge {
   void _ensureConnected() {
     if (!isConnected) {
       throw StateError(
-        'Not connected to a Flutter app. Call connect_to_app first with the '
-        'WebSocket URI printed by `flutter run` (it looks like '
-        'ws://127.0.0.1:PORT/AUTHCODE=/ws).',
+        'Not connected to a Flutter app. Call the connect_to_app tool with no '
+        'arguments: it discovers the running app automatically via the Dart '
+        'Tooling Daemon. Do not copy the URI printed by `flutter run` — its '
+        'path segment is a per-run auth code that goes stale on every '
+        'relaunch.',
       );
     }
   }

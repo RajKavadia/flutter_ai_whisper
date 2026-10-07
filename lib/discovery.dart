@@ -100,8 +100,9 @@ class VmServiceDiscovery {
       final uri = Uri.parse(uriMatches[i].group(1)!);
       // Attribute each block's root/version by slicing between matches.
       final start = uriMatches[i].start;
-      final end =
-          i + 1 < uriMatches.length ? uriMatches[i + 1].start : text.length;
+      final end = i + 1 < uriMatches.length
+          ? uriMatches[i + 1].start
+          : text.length;
       final block = text.substring(start, end);
       instances.add(
         DtdInstance(

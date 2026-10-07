@@ -224,9 +224,6 @@ Pop back to the route before injecting, and **poll** for the rebuild rather than
 sleeping a fixed amount.
 
 Confirm the view changed by walking the element tree and reading `Text` widgets,
-not by re-reading the variable.
-
-Confirm the view changed by walking the element tree and reading `Text` widgets,
 not by re-reading the variable. A `static int buildCount = 0;` incremented in
 `build()` makes this assertable.
 
@@ -307,7 +304,7 @@ dart pub publish --dry-run
 
 ### Conventions
 
-- Dart 3.7+, strict casts and raw types.
+- Dart 3.8+, strict casts and raw types.
 - Prefer `evaluate` with a specific `libraryUri` over guessing.
 - Keep the root library as the default target; only widen deliberately.
 - Never let a tool throw out of its handler.

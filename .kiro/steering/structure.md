@@ -63,7 +63,7 @@ logic. `state_discoverer.dart` is discovery; it must not connect to anything.
 
 ## Conventions
 
-- Dart 3.7+, strict casts and raw types.
+- Dart 3.8+, strict casts and raw types.
 - One `VmBridge` instance shared by all tools; never open a second connection.
 - Prefer `evaluate` with an explicit `libraryUri` over guessing at scope.
 - Keep the app's root library as the default target; widen only deliberately.

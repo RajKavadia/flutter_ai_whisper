@@ -1,0 +1,12 @@
+# Normalize line endings in the repository so that the index is the single
+# source of truth. Without this, `core.autocrlf=true` on Windows makes the
+# working tree CRLF while the index stays LF, which produces a
+# "LF will be replaced by CRLF" warning on every `git add` and lets individual
+# files drift into mixed endings.
+#
+# Setting `eol=lf` explicitly also overrides that heuristic, so the warning
+# stops entirely.
+* text=auto eol=lf
+
+# Windows and MSVC are checked out with CRLF regardless; this repo contains no
+# native build inputs, so keep the rule uniform.

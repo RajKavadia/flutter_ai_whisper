@@ -11,16 +11,18 @@ import 'package:flutter_ai_whisper/vm_bridge.dart';
 import 'package:mcp_server/mcp_server.dart';
 
 Future<void> main(List<String> arguments) async {
-  final parser =
-      ArgParser()
-        ..addOption(
-          'vm-uri',
-          abbr: 'u',
-          help:
-              'Optional VM Service WebSocket URI. If omitted, use the '
-              'connect_to_app tool with the URI printed by `flutter run`.',
-        )
-        ..addFlag('help', abbr: 'h', negatable: false, help: 'Show usage.');
+  final parser = ArgParser()
+    ..addOption(
+      'vm-uri',
+      abbr: 'u',
+      help:
+          'Optional VM Service WebSocket URI, used to connect at startup. '
+          'Prefer omitting it: the connect_to_app tool discovers running '
+          'apps automatically via the Dart Tooling Daemon, which matters '
+          'because the URI printed by `flutter run` embeds a per-run auth '
+          'code that goes stale on every relaunch.',
+    )
+    ..addFlag('help', abbr: 'h', negatable: false, help: 'Show usage.');
 
   final ArgResults args;
   try {
@@ -53,7 +55,7 @@ Future<void> main(List<String> arguments) async {
   final serverResult = await McpServer.createAndStart(
     config: McpServer.simpleConfig(
       name: 'flutter_ai_whisper',
-      version: '1.0.0',
+      version: '1.1.0',
     ),
     transportConfig: TransportConfig.stdio(),
   );

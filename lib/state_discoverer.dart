@@ -41,10 +41,9 @@ class StateDiscoverer {
     final classList = await _bridge.getClassList();
     if (classList == null) return holders;
 
-    final stateClasses =
-        (classList.classes ?? [])
-            .where((c) => _looksLikeStateHolder(c.name ?? ''))
-            .toList();
+    final stateClasses = (classList.classes ?? [])
+        .where((c) => _looksLikeStateHolder(c.name ?? ''))
+        .toList();
 
     for (final classRef in stateClasses) {
       final id = classRef.id;

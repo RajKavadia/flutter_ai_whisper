@@ -74,7 +74,12 @@ void main() {
           isA<StateError>().having(
             (e) => e.message,
             'message',
-            allOf(contains('connect_to_app'), contains('AUTHCODE')),
+            allOf(
+              contains('connect_to_app'),
+              contains('Tooling Daemon'),
+              // Must steer callers away from the pasted-URI anti-pattern.
+              contains('goes stale'),
+            ),
           ),
         ),
       );
