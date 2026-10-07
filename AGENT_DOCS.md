@@ -33,7 +33,8 @@ loads one small file first and reads `AGENTS.md` for depth.
 
 If a change touches any of these, every file above must be updated:
 
-- `connect_to_app` is required first; the URI carries a per-run auth code.
+- `connect_to_app` requires no URI: it auto-discovers via the Dart Tooling
+  Daemon. Never copy the `flutter run` URI — its path is a per-run auth code.
 - The app URL is the static web server, not the VM Service.
 - Flutter Web cannot enumerate state (`getClassList`, `rootLib.variables` and
   `dart:mirrors` are unavailable).

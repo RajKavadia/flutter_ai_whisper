@@ -16,8 +16,9 @@ dependency** — do not add one.
 
 ## Non-negotiables
 
-- **Call `connect_to_app` before any other tool.** The URI printed by
-  `flutter run` embeds a per-run auth code and changes every relaunch.
+- **Call `connect_to_app` with no arguments.** It auto-discovers the app via the
+  Dart Tooling Daemon. Never paste the URI from `flutter run` — its path is a
+  per-run auth code that goes stale on every relaunch.
 - **The app URL is not the VM Service.** `http://localhost:52362/` is the static
   web server; the real URI is the `ws://127.0.0.1:PORT/AUTHCODE=/ws` line.
 - **Flutter Web cannot enumerate state.** `getClassList`, `rootLib.variables`

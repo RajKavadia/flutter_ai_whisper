@@ -25,7 +25,9 @@ environment:
 
 dependencies:
   args: ^2.5.0
+  dtd: ^4.0.0
   mcp_server: ^2.2.4
+  meta: ^1.15.0
   vm_service: ^15.3.0
 
 dev_dependencies:

@@ -38,15 +38,26 @@ Register with the client, e.g. in `.mcp.json`:
 
 ## The connection rule — read this first
 
-The app must run in **debug mode**. `flutter run` prints a URI containing a
-**per-run auth code**:
+The app must run in **debug mode**.
+
+**Call `connect_to_app` with no arguments.** It discovers the running app
+through the Dart Tooling Daemon (DTD) — the same mechanism the official
+`dart mcp_server` uses — and connects automatically. `discover_running_apps`
+lists candidates when several are running, and accepts a `workspaceFilter`.
+
+`flutter run` also prints a URI, but **do not copy it**:
 
 ```text
 This app is linked to the debug service: ws://127.0.0.1:56660/RsqcVzTFmw0=/ws
 ```
 
-- Call `connect_to_app` with that exact URI **before any other tool**. It
-  changes on every app relaunch.
+The path segment is a **per-run auth code** that changes on every relaunch, so a
+pasted URI is stale the moment the app restarts. Pass `vmUri` manually only when
+discovery finds nothing, which happens when the app was not started by
+`flutter run` or an IDE.
+
+Known failure modes:
+
 - The bare app URL (`http://localhost:52362/`) is the **static web server**,
   not the VM Service. Connecting to it yields
   `WebSocketException: HTTP status code: 200`.
@@ -58,9 +69,10 @@ This app is linked to the debug service: ws://127.0.0.1:56660/RsqcVzTFmw0=/ws
 
 | Tool | Purpose |
 | --- | --- |
-| `connect_to_app` | Connect over the VM Service. Required first. |
+| `discover_running_apps` | List running apps and their VM Service URIs via DTD. |
+| `connect_to_app` | Connect. Safe with no arguments — auto-discovers. |
 | `list_active_state_holders` | Report live state; or probe given `expressions`. |
-| `inject_state_variable` | Evaluate a Dart statement to mutate state. |
+| `inject_state_variable` | Evaluate Dart to mutate state. |
 | `trigger_route_navigation` | Push a named route. |
 
 Full parameter tables are in `README.md`.

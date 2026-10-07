@@ -17,7 +17,9 @@ only.
 
 ## Rules that cause real bugs
 
-- Call `connect_to_app` first. The URI has a per-run auth code.
+- Call `connect_to_app` with no arguments. It auto-discovers via the Dart
+  Tooling Daemon. Never paste the `flutter run` URI — the path is a per-run auth
+  code, stale on every relaunch.
 - The app URL (`http://localhost:PORT/`) is the static web server, not the VM
   Service. Use the `ws://127.0.0.1:PORT/AUTHCODE=/ws` line from `flutter run`.
 - Flutter Web cannot enumerate state — no `getClassList`, no `dart:mirrors`.

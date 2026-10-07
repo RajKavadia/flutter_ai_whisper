@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:flutter_ai_whisper/tools/connect_to_app.dart';
+import 'package:flutter_ai_whisper/tools/discover_running_apps.dart';
 import 'package:flutter_ai_whisper/tools/inject_state_variable.dart';
 import 'package:flutter_ai_whisper/tools/list_active_state_holders.dart';
 import 'package:flutter_ai_whisper/tools/trigger_route_navigation.dart';
@@ -50,31 +51,62 @@ Future<void> main(List<String> arguments) async {
   }
 
   final serverResult = await McpServer.createAndStart(
-    config: McpServer.simpleConfig(name: 'flutter_ai_whisper', version: '1.0.0'),
+    config: McpServer.simpleConfig(
+      name: 'flutter_ai_whisper',
+      version: '1.0.0',
+    ),
     transportConfig: TransportConfig.stdio(),
   );
 
   await serverResult.fold(
     (server) async {
       server.addTool(
+        name: 'discover_running_apps',
+        description:
+            'Lists running Flutter/Dart apps with their VM Service URIs, using '
+            'the Dart Tooling Daemon. Prefer this over copying a URI out of '
+            'the `flutter run` console: the URI contains a per-run auth code, '
+            'so it goes stale on every relaunch. Returns nothing if the app was '
+            'not started by `flutter run` or an IDE.',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'workspaceFilter': {
+              'type': 'string',
+              'description':
+                  'Optional substring to match against the workspace root, '
+                  'e.g. "sample_app". Use when several apps are running.',
+            },
+          },
+          'required': [],
+        },
+        handler: (a) => discoverRunningApps(bridge, a),
+      );
+
+      server.addTool(
         name: 'connect_to_app',
         description:
-            'Connects to a running Flutter app via its VM Service '
-            'WebSocket URI. Must be called before the other tools when the app '
-            'was started with `flutter run`, because the URI contains a '
-            'per-run auth code. Copy the URI from the "This app is linked to '
-            'the debug service: ws://..." line in the `flutter run` output.',
+            'Connects to a running Flutter app via its VM Service. Call this '
+            'before the other tools. Safe to call with no arguments: it '
+            'discovers running apps automatically via the Dart Tooling Daemon. '
+            'Pass `vmUri` to target one specific app.',
         inputSchema: {
           'type': 'object',
           'properties': {
             'vmUri': {
               'type': 'string',
               'description':
-                  'Full WebSocket URI, including the auth code, '
-                  'e.g. "ws://127.0.0.1:56660/RsqcVzTFmw0=/ws".',
+                  'Full WebSocket URI including the auth code, e.g. '
+                  '"ws://127.0.0.1:56660/RsqcVzTFmw0=/ws". Optional.',
+            },
+            'workspaceFilter': {
+              'type': 'string',
+              'description':
+                  'Optional substring to match the workspace root during '
+                  'auto-discovery.',
             },
           },
-          'required': ['vmUri'],
+          'required': [],
         },
         handler: (a) => connectToApp(bridge, a),
       );

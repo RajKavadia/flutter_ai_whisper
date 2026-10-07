@@ -48,24 +48,14 @@ Do not run it interactively and expect output.
    flutter run -d chrome
    ```
 
-2. **Copy the debug service URI** from the console. It looks like this:
+2. **Register the server with your MCP client** (below).
 
-   ```text
-   This app is linked to the debug service: ws://127.0.0.1:56660/RsqcVzTFmw0=/ws
-   ```
+3. Ask the agent to connect. It needs no URI:
 
-   The random-looking path segment is a **per-run auth code**. It changes every
-   time you relaunch the app, which is why the connection is a tool call rather
-   than a startup argument.
+   > Connect to the running app, then read my counter.
 
-   The bare app URL (`http://localhost:52362/`) is the static web server, not
-   the VM Service. Connecting to it will fail.
-
-3. **Register the server with your MCP client** (below).
-
-4. Ask the agent to connect:
-
-   > Connect to `ws://127.0.0.1:56660/RsqcVzTFmw0=/ws`, then read my counter.
+   Discovery uses the Dart Tooling Daemon, so nothing has to be copied out of
+   the console.
 
 ## MCP client configuration
 
@@ -139,15 +129,48 @@ flutter_ai_whisper --vm-uri "ws://127.0.0.1:56660/RsqcVzTFmw0=/ws"
 
 ## Tools
 
-### `connect_to_app`
+### `discover_running_apps`
 
-Connects to a running app. **Required first**, because of the per-run auth code.
+Lists running apps and their VM Service URIs. Usually you can skip this and call
+`connect_to_app` directly.
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
-| `vmUri` | string | yes | Full WebSocket URI including auth code. |
+| `workspaceFilter` | string | no | Substring to match the workspace root, e.g. `sample_app`. |
+
+### `connect_to_app`
+
+Connects to a running app. **All parameters are optional** — call it with no
+arguments and it discovers the app automatically.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `vmUri` | string | no | Target one specific app by its WebSocket URI. |
+| `workspaceFilter` | string | no | Substring to match the workspace root during auto-discovery. |
 
 Reports which VM Service features are available, since they differ by platform.
+
+### Automatic discovery
+
+Rather than copying a URI out of `flutter run`'s console, the server asks the
+**Dart Tooling Daemon (DTD)** what is running. `flutter run` and the IDEs start
+a DTD instance per workspace and register the app's VM Service with it, so DTD
+already holds the auth-coded WebSocket URI.
+
+This matters because that URI's path segment is a **per-run auth code** — it
+changes every time the app relaunches, so a pasted URI is stale almost
+immediately. It is the same discovery mechanism the official `dart mcp_server`
+uses.
+
+Discovery returns nothing if the app was not started by `flutter run` or an IDE.
+In that case, pass `vmUri` manually using the line `flutter run` printed:
+
+```text
+This app is linked to the debug service: ws://127.0.0.1:56660/RsqcVzTFmw0=/ws
+```
+
+The bare app URL (`http://localhost:52362/`) is the static web server, not the
+VM Service, and will not connect.
 
 ### `list_active_state_holders`
 
