@@ -4,9 +4,9 @@ MCP server that inspects and injects state in a running Flutter app over the Dar
 VM Service.
 
 **Read `AGENTS.md` first — it is the canonical guide** covering architecture,
-the four MCP tools, platform differences, expression rules, state-management
-specifics, and the development workflow. This file adds Copilot-specific notes
-only.
+the five tools, platform differences, scope and reachability, expression rules,
+rebuild semantics, state-management recipes, and the development workflow. This
+file adds Copilot-specific notes only.
 
 ## What this project is
 
@@ -21,17 +21,27 @@ dependency** — do not add one.
   per-run auth code that goes stale on every relaunch.
 - **The app URL is not the VM Service.** `http://localhost:52362/` is the static
   web server; the real URI is the `ws://127.0.0.1:PORT/AUTHCODE=/ws` line.
-- **Flutter Web cannot enumerate state.** `getClassList`, `rootLib.variables`
-  and `dart:mirrors` are all unavailable. Name state explicitly and read the
-  app's source to find the names.
+- **An expression lives in exactly one library scope.** Visibility follows that
+  library's import/export graph, so the wrong library yields
+  `CompilationError: Undefined name`.
+- **Private members need `libraryUri`.** Dart privacy is library-scoped and
+  uniform: fields, classes, methods and getters all fail to compile from the
+  wrong library.
+- **Mutating an object does not update the view.** Plain fields need an explicit
+  `setState` (mutate inside it); GetX `Rx`, Riverpod, Bloc and
+  `ValueNotifier`/`ChangeNotifier` notify themselves. `setState` rebuilds on the
+  next frame, not inline — wait a frame before verifying, and check the rendered
+  `Text` widgets rather than re-reading the variable.
+- **You can only reach what the object exposes.** A read-only getter with no
+  setter cannot be assigned, however good the injection is.
 - **Prefer `expression` over `target`/`value`.** The pair builds `target = value`
   and fails on `final` globals with `Setter not found`.
 - **`evaluate` takes one expression, not statements.** No comma expressions; wrap
   multi-statement logic in an IIFE.
-- **Private members need `libraryUri`.** Dart privacy is library-scoped, so
-  `_field` is invisible from the root library.
 - **Tool failures come back as `isError: true`, not exceptions.** Read the error
   text before retrying.
+- **Flutter Web cannot enumerate state.** `getClassList`, `rootLib.variables`
+  and `dart:mirrors` are unavailable. Name state explicitly via `expressions`.
 
 ## Verify before claiming done
 
@@ -47,6 +57,6 @@ is development-only. Never connect it to a production build or an untrusted app.
 
 ## Before publishing
 
-Replace the `YOUR_GITHUB_USERNAME` / `YOUR_NAME` placeholders in `pubspec.yaml`
-and `LICENSE`, bump the version, add a `CHANGELOG.md` entry, and run
+Repository metadata is already set to `RajKavadia/flutter_ai_whisper`. Before
+releasing, bump the version, add a `CHANGELOG.md` entry, and run
 `dart pub publish --dry-run`.

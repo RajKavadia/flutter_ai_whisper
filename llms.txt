@@ -9,7 +9,7 @@ this file is the single source of truth.
 
 ## What this is
 
-A Dart CLI that speaks MCP on `stdio` and exposes four tools. It is **not** a
+A Dart CLI that speaks MCP on `stdio` and exposes five tools. It is **not** a
 Flutter app and has no Flutter dependency — it is an external process that talks
 to a running app over a WebSocket.
 
@@ -120,14 +120,145 @@ library-scoped, so private members are invisible from the root library. Pass
 libraryUri: "package:my_app/pages/home_page.dart"
 ```
 
+Without it, private names fail to even **compile**, surfacing as
+`CompilationError: Undefined name '_x'`. That single rule covers private
+**fields**, **classes**, **methods** and **getters** alike — there is no
+per-kind exception.
+
 The error message lists every app library when a URI does not match.
+
+## Scope and reachability
+
+**One expression is evaluated in exactly one library scope.** Pick the library
+that holds the names you need, and be deliberate about which one that is.
+Visibility follows the library's own import and `export` graph, not your
+intuition:
+
+```dart
+// main.dart has:  export 'state/signal_store.dart';
+// so from main.dart, both `counterCubit` (own) and `cartRepo` (exported) resolve.
+```
+
+Choosing the wrong library gives `Undefined name` even for a perfectly good
+object. Re-exporting from a barrel file is a common way one library sees
+everything.
+
+**You can only reach what the object exposes.** Injection runs real Dart, so the
+public surface is the ceiling. A read-only getter with no setter and only an
+`increment()` method means you can increment but not assign:
+
+```dart
+class AppState {
+  int _counter = 0;
+  int get counter => _counter;              // read only
+  void incrementCounter() => _counter++;    // no way to set 12 directly
+}
+```
+
+```dart
+// assign: impossible — no setter exists
+// increment: works
+s.setState(() { for (var i = 0; i < 12; i++) { appState.incrementCounter(); } });
+```
+
+Before assuming a value cannot be set, read the class. If the app genuinely
+needs arbitrary assignment, it has to expose a setter — that is an app change,
+not a tool limitation.
+
+**The element-tree walk is the general escape hatch.** Any `StatefulWidget`'s
+`State` is reachable by matching its widget type, regardless of naming:
+
+```dart
+(() {
+  Element? t;
+  void walk(Element e) {
+    if (t != null) return;
+    if (e.widget is HomePage) { t = e; return; }
+    e.visitChildren(walk);
+  }
+  walk(WidgetsBinding.instance.rootElement!);
+  if (t == null) return 'not-found';
+  final s = (t as StatefulElement).state as _HomePageState;
+  return s._localCounter.toString();   // private field AND private method
+})()
+```
+
+Combine it with `libraryUri` for that declaring library and private members of
+the `State` — fields, methods, everything — are reachable. Note the guard: if no
+matching widget is mounted, `t` stays null, so always handle it.
 
 **Navigate via the tree, not `rootElement`.**
 `Navigator.of(rootElement!)` throws because `rootElement` sits *above* the
 Navigator. `trigger_route_navigation` walks down to the first descendant that
 resolves a Navigator.
 
+## Mutating state: always trigger the rebuild
+
+`evaluate` mutates *objects*. That is not the same as updating the *view*. A
+plain Dart field write produces no rebuild, so the variable reads back as
+changed while the screen still shows the old value.
+
+**After mutating, trigger the framework's own notification.** How depends on
+what you mutated:
+
+| What you mutated | What you must also do |
+| --- | --- |
+| Plain object / plain field | `setState` on the owning `State` |
+| Private widget state | `setState` on that `State`, plus `libraryUri` |
+| GetX `Rx`/`.obs` | nothing — `.value =` notifies automatically |
+| Riverpod state | nothing — assigning `state` notifies listeners |
+| Bloc | nothing — add an event; the bloc notifies |
+| `ValueNotifier`/`ChangeNotifier` | nothing — assign; it notifies |
+
+For plain objects, mutate *inside* `setState` so the values are already
+committed when the rebuild reads them:
+
+```dart
+(() {
+  Element? t;
+  void walk(Element e) {
+    if (t != null) return;
+    if (e.widget is HomePage) { t = e; return; }
+    e.visitChildren(walk);
+  }
+  walk(WidgetsBinding.instance.rootElement!);
+  final s = (t as StatefulElement).state as _HomePageState;
+  s.setState(() { counterCubit.setValue(42); });
+  return 'ok';
+})()
+```
+
+Pass `libraryUri: "package:app/pages/home_page.dart"` — `_HomePageState` is
+private, so it is invisible from the root library.
+
+**`setState` is asynchronous.** It marks the element dirty and rebuilds on the
+next frame; it does not run `build()` inline. Reading a build counter straight
+after will show the *old* value. Wait a frame before verifying.
+
+Verify the view actually changed, not just the variable — walk the element tree
+and read the `Text` widgets:
+
+```dart
+(() {
+  final texts = <String>[];
+  void walk(Element e) {
+    final w = e.widget;
+    if (w is Text && (w.data ?? '').trim().isNotEmpty) texts.add(w.data!);
+    e.visitChildren(walk);
+  }
+  walk(WidgetsBinding.instance.rootElement!);
+  return texts.join(' | ');
+})()
+```
+
+A `static int buildCount = 0;` incremented in `build()` makes this assertable:
+after a rebuild it increments.
+
 ## State-management specifics
+
+None of these are special-cased. Injection is just Dart evaluation, so any state
+management works provided you can name a reference to it. The differences below
+are only about *how you get a reference* and *whether it self-notifies*.
 
 **Riverpod** — `state` is `@protected`; you cannot assign it externally. Call a
 method on the notifier via a top-level `ProviderContainer`:
@@ -136,6 +267,9 @@ method on the notifier via a top-level `ProviderContainer`:
 container.read(counterProvider.notifier).setValue(77)
 ```
 
+Assigning `notifier.state = x` fails to compile, and self-notifies, so no
+`setState` is needed.
+
 **Bloc** — no global instance registry; each lives in its `BlocProvider`. The
 agent must be able to name it (keep a handle at creation). Write by dispatching
 an event: `activeBloc.add(const CounterSet(55))`. **`BlocProvider(create:)` is
@@ -143,8 +277,16 @@ lazy** — navigate to the route first or reads fail with
 `Unexpected null value`.
 
 **GetX** — easiest. Global registry, so `Get.find<T>()` works with no app
-changes. `.value` is directly writable. Navigation needs no context:
-`Get.toNamed('/profile')`.
+changes. `.value` is directly writable and self-notifies. Navigation needs no
+context: `Get.toNamed('/profile')`.
+
+**Plain objects** (`CounterCubit`, `AppState`) — easiest to name, but they have
+**no change notification at all**. Every write needs a `setState`, and they
+expose only what you gave them.
+
+**Custom / unknown libraries** — nothing special. A hand-rolled `Sig<T>` or a
+`CartRepo` works exactly like the above, because discovery is never involved
+when you name the holder yourself.
 
 ## Error handling
 

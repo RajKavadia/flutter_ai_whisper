@@ -9,7 +9,7 @@ this file is the single source of truth.
 
 ## What this is
 
-A Dart CLI that speaks MCP on `stdio` and exposes four tools. It is **not** a
+A Dart CLI that speaks MCP on `stdio` and exposes five tools. It is **not** a
 Flutter app and has no Flutter dependency — it is an external process that talks
 to a running app over a WebSocket.
 
@@ -119,14 +119,104 @@ library-scoped, so private members are invisible from the root library. Pass
 libraryUri: "package:my_app/pages/home_page.dart"
 ```
 
+Without it, private names fail to even **compile**, surfacing as
+`CompilationError: Undefined name '_x'`. That single rule covers private
+**fields**, **classes**, **methods** and **getters** alike — there is no
+per-kind exception.
+
 The error message lists every app library when a URI does not match.
+
+## Scope and reachability
+
+**One expression is evaluated in exactly one library scope.** Visibility follows
+that library's own import and `export` graph, not your intuition. A barrel file
+with `export 'state/signal_store.dart';` is why the root library can see a
+holder defined elsewhere. Choosing the wrong library gives `Undefined name` even
+for a perfectly good object.
+
+**You can only reach what the object exposes.** Injection runs real Dart, so the
+public surface is the ceiling. A read-only getter with no setter, plus only an
+`increment()`, means you can increment but never assign:
+
+```dart
+s.setState(() { for (var i = 0; i < 12; i++) { appState.incrementCounter(); } });
+```
+
+Read the class before assuming a value is unsettable. If arbitrary assignment is
+genuinely needed, the app must expose a setter — an app change, not a tool
+limitation.
+
+**The element-tree walk is the general escape hatch.** Any `StatefulWidget`'s
+`State` is reachable by matching its widget type, whatever the naming:
+
+```dart
+(() {
+  Element? t;
+  void walk(Element e) {
+    if (t != null) return;
+    if (e.widget is HomePage) { t = e; return; }
+    e.visitChildren(walk);
+  }
+  walk(WidgetsBinding.instance.rootElement!);
+  if (t == null) return 'not-found';
+  final s = (t as StatefulElement).state as _HomePageState;
+  return s._localCounter.toString();   // private field AND private method
+})()
+```
+
+With `libraryUri` set to that declaring library, private members of the `State`
+— fields and methods alike — are reachable. Guard on `t == null`: if the widget
+is not mounted, nothing matches.
 
 **Navigate via the tree, not `rootElement`.**
 `Navigator.of(rootElement!)` throws because `rootElement` sits *above* the
 Navigator. `trigger_route_navigation` walks down to the first descendant that
 resolves a Navigator.
 
+## Mutating state: always trigger the rebuild
+
+`evaluate` mutates *objects*, which is not the same as updating the *view*. A
+plain field write produces no rebuild: the variable reads back as changed while
+the screen still shows the old value.
+
+**Mutate inside `setState` for anything without its own notification.** Plain
+objects, and private widget state, need it. GetX `Rx`, Riverpod state, Bloc
+events and `ValueNotifier`/`ChangeNotifier` notify on their own and need nothing
+extra.
+
+```dart
+(() {
+  Element? t;
+  void walk(Element e) {
+    if (t != null) return;
+    if (e.widget is HomePage) { t = e; return; }
+    e.visitChildren(walk);
+  }
+  walk(WidgetsBinding.instance.rootElement!);
+  final s = (t as StatefulElement).state as _HomePageState;
+  s.setState(() { counterCubit.setValue(42); });
+  return 'ok';
+})()
+```
+
+Requires `libraryUri` pointing at the declaring library, because `_HomePageState`
+is private.
+
+**`setState` rebuilds on the next frame, not inline.** Reading a build counter
+immediately after still shows the old value — wait a frame before verifying.
+
+Confirm the view changed by walking the element tree and reading `Text` widgets,
+not by re-reading the variable.
+
+Confirm the view changed by walking the element tree and reading `Text` widgets,
+not by re-reading the variable. A `static int buildCount = 0;` incremented in
+`build()` makes this assertable.
+
 ## State-management specifics
+
+None of these are special-cased. Injection is just Dart evaluation, so any state
+management works provided you can name a reference to it. The differences are
+only about *how you get a reference* and *whether it self-notifies*.
 
 **Riverpod** — `state` is `@protected`; you cannot assign it externally. Call a
 method on the notifier via a top-level `ProviderContainer`:
@@ -135,6 +225,8 @@ method on the notifier via a top-level `ProviderContainer`:
 container.read(counterProvider.notifier).setValue(77)
 ```
 
+Assigning `notifier.state = x` fails to compile. Self-notifies, so no `setState`.
+
 **Bloc** — no global instance registry; each lives in its `BlocProvider`. The
 agent must be able to name it (keep a handle at creation). Write by dispatching
 an event: `activeBloc.add(const CounterSet(55))`. **`BlocProvider(create:)` is
@@ -142,8 +234,16 @@ lazy** — navigate to the route first or reads fail with
 `Unexpected null value`.
 
 **GetX** — easiest. Global registry, so `Get.find<T>()` works with no app
-changes. `.value` is directly writable. Navigation needs no context:
-`Get.toNamed('/profile')`.
+changes. `.value` is directly writable and self-notifies. Navigation needs no
+context: `Get.toNamed('/profile')`.
+
+**Plain objects** (`CounterCubit`, `AppState`) — easiest to name, but they have
+**no change notification at all**. Every write needs a `setState`, and they
+expose only what you gave them.
+
+**Custom / unknown libraries** — nothing special. A hand-rolled `Sig<T>` or a
+`CartRepo` works exactly like the above, because discovery is never involved
+when you name the holder yourself.
 
 ## Error handling
 
@@ -173,6 +273,7 @@ dart pub publish --dry-run
 | --- | --- |
 | `bin/main.dart` | CLI arg parsing, MCP server, tool registration + schemas |
 | `lib/vm_bridge.dart` | VM Service connection, isolate/library resolution, `evaluate` |
+| `lib/discovery.dart` | Finds running apps via the Dart Tooling Daemon |
 | `lib/state_discoverer.dart` | Class-pattern + library-variable discovery, expression probing |
 | `lib/tools/*.dart` | One file per tool; each is a `Future<CallToolResult>` |
 
@@ -192,6 +293,8 @@ dart pub publish --dry-run
 - Prefer `evaluate` with a specific `libraryUri` over guessing.
 - Keep the root library as the default target; only widen deliberately.
 - Never let a tool throw out of its handler.
+- `CallToolResult.isError` is **nullable**; `null` means success. Test it with
+  `result.isError != true`, never `!result.isError!`.
 
 ## Before publishing
 

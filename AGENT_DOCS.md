@@ -33,11 +33,17 @@ loads one small file first and reads `AGENTS.md` for depth.
 
 If a change touches any of these, every file above must be updated:
 
-- `connect_to_app` requires no URI: it auto-discovers via the Dart Tooling
-  Daemon. Never copy the `flutter run` URI — its path is a per-run auth code.
+- `connect_to_app` needs no URI: it auto-discovers via the Dart Tooling Daemon.
+  Never copy the `flutter run` URI — its path is a per-run auth code.
 - The app URL is the static web server, not the VM Service.
+- An expression is evaluated in exactly one library scope; visibility follows
+  that library's import/export graph.
 - Flutter Web cannot enumerate state (`getClassList`, `rootLib.variables` and
   `dart:mirrors` are unavailable).
 - Prefer `expression` over `target`/`value`; `final` globals reject assignment.
 - `evaluate` takes one expression, not statements.
-- Private members require `libraryUri`.
+- Private members require `libraryUri` — fields, classes and methods alike.
+- Mutating an object does not update the view; plain fields need `setState`,
+  and it rebuilds on the next frame rather than inline.
+- You can only reach what the object exposes; a getter with no setter cannot
+  be assigned.

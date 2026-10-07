@@ -127,16 +127,30 @@ The app UI updates live between calls.
 
 ## 5. Private widget state
 
-To reach a private field, evaluate inside its declaring library:
+`evaluate` targets the app's root library by default, where `_`-prefixed names
+are invisible. Pass `libraryUri` to evaluate inside the declaring library:
 
 ```json
 { "name": "inject_state_variable",
   "arguments": {
     "libraryUri": "package:my_app/pages/home_page.dart",
-    "expression": "(() { final s = targetState as _HomePageState; s.setState(() { s._localCounter = 12; }); })()"
+    "expression": "(() { Element? t; void walk(Element e) { if (t != null) return; if (e.widget is HomePage) { t = e; return; } e.visitChildren(walk); } walk(WidgetsBinding.instance.rootElement!); final s = (t as StatefulElement).state as _HomePageState; s.setState(() { s._localCounter = 12; }); return 'ok'; })()"
   }
 }
 ```
+
+Note the `walk` helper: it locates the `State` object by matching the widget
+type, which works whatever the widget is named.
+
+Two rules that save a wasted attempt:
+
+- **You can only assign what has a setter.** If the class only exposes
+  `increment()`, call it in a loop instead of assigning.
+- **Plain writes do not update the screen.** Wrap them in `setState`. GetX `Rx`,
+  Riverpod, Bloc and `ChangeNotifier` notify themselves and need nothing extra.
+
+`setState` rebuilds on the next frame, so wait briefly before checking that the
+view changed.
 
 ## Next steps
 

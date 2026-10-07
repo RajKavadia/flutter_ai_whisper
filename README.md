@@ -4,7 +4,7 @@ An [MCP](https://modelcontextprotocol.io) server that lets an AI coding agent
 inspect and mutate the runtime state of a **running** Flutter app, and drive its
 navigation — over the Dart VM Service, with no code changes to the app.
 
-It speaks MCP on `stdio` and exposes four tools. The agent can ask what state
+It speaks MCP on `stdio` and exposes five tools. The agent can ask what state
 exists, read and write it, and push routes — then see the app react live.
 
 ---
@@ -237,6 +237,108 @@ the app's source, find the top-level state objects, then probe them:
 On **native** targets, discovery by class-name pattern works, but note that it is
 heuristic: it will miss holders whose names do not match a known pattern and may
 include false positives.
+
+### Scope and reachability
+
+An expression is evaluated in **exactly one library scope**, and visibility
+follows that library's own `import`/`export` graph. Targeting the wrong library
+gives `CompilationError: Undefined name` even for a perfectly valid object.
+
+Dart's `_` privacy is library-scoped and uniform across fields, classes, methods
+and getters. Pass `libraryUri` to evaluate inside the declaring library, or
+private members fail to compile:
+
+```json
+{ "libraryUri": "package:my_app/pages/home_page.dart",
+  "expressions": ["_HomePageState.buildCount.toString()"] }
+```
+
+**You can only reach what the object exposes.** Injection runs real Dart, so the
+public surface is the ceiling:
+
+```dart
+class AppState {
+  int _counter = 0;
+  int get counter => _counter;               // read only
+  void incrementCounter() => _counter++;     // no setter: cannot assign 12
+}
+```
+
+```dart
+// impossible: no setter exists
+s.setState(() { for (var i = 0; i < 12; i++) { appState.incrementCounter(); } });
+```
+
+If a value genuinely needs arbitrary assignment, the app has to expose a setter.
+That is an app change, not a tool limitation.
+
+### Reaching private widget state
+
+The element-tree walk is the general escape hatch — it reaches any
+`StatefulWidget`'s `State` by matching the widget type, whatever the naming. See
+the example below.
+
+### Triggering a rebuild
+
+`evaluate` mutates objects, which does not by itself update the screen. A plain
+field write leaves the variable changed while the widget still shows the old
+value. Anything without its own change notification needs an explicit rebuild:
+
+```json
+{
+  "name": "inject_state_variable",
+  "arguments": {
+    "libraryUri": "package:my_app/pages/home_page.dart",
+    "expression": "(() { Element? t; void walk(Element e) { if (t != null) return; if (e.widget is HomePage) { t = e; return; } e.visitChildren(walk); } walk(WidgetsBinding.instance.rootElement!); final s = (t as StatefulElement).state as _HomePageState; s.setState(() { counterCubit.setValue(42); }); return 'ok'; })()"
+  }
+}
+```
+
+GetX `Rx`, Riverpod state, Bloc events, `ValueNotifier` and `ChangeNotifier`
+notify on their own, so no extra call is needed there.
+
+Two things to expect: `setState` schedules the rebuild for the **next frame**,
+so it is not visible immediately; and it needs `libraryUri` when the `State`
+class is private.
+
+Verify against the rendered tree rather than the variable:
+
+```dart
+(() {
+  final texts = <String>[];
+  void walk(Element e) {
+    final w = e.widget;
+    if (w is Text && (w.data ?? '').trim().isNotEmpty) texts.add(w.data!);
+    e.visitChildren(walk);
+  }
+  walk(WidgetsBinding.instance.rootElement!);
+  return texts.join(' | ');
+})()
+```
+
+### Reaching private widget state
+
+Match the widget type in the element tree, cast the `State`, and you have access
+to its private members — provided you also pass `libraryUri` for the library
+that declares it:
+
+```dart
+(() {
+  Element? t;
+  void walk(Element e) {
+    if (t != null) return;
+    if (e.widget is HomePage) { t = e; return; }
+    e.visitChildren(walk);
+  }
+  walk(WidgetsBinding.instance.rootElement!);
+  if (t == null) return 'not-found';
+  final s = (t as StatefulElement).state as _HomePageState;
+  s.setState(() { s._localCounter = 12; });   // private field
+  return 'ok';
+})()
+```
+
+Guard on `t == null`: if the widget is not mounted, nothing matches.
 
 ## Recipes
 
