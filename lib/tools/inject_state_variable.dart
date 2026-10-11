@@ -1,3 +1,6 @@
+/// The `inject_state_variable` MCP tool.
+library;
+
 import 'package:flutter_ai_whisper/vm_bridge.dart';
 import 'package:mcp_server/mcp_server.dart';
 import 'package:vm_service/vm_service.dart';

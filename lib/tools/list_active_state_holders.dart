@@ -1,7 +1,14 @@
+/// The `list_active_state_holders` MCP tool.
+library;
+
 import 'package:flutter_ai_whisper/state_discoverer.dart';
 import 'package:flutter_ai_whisper/vm_bridge.dart';
 import 'package:mcp_server/mcp_server.dart';
 
+/// Reports live state holders, or probes Dart expressions named in [args].
+///
+/// [args] may include `filter`, `expressions`, and `libraryUri`. On Flutter
+/// Web, automatic enumeration is unavailable, so `expressions` is required.
 Future<CallToolResult> listActiveStateHolders(
   VmBridge bridge,
   Map<String, dynamic> args,

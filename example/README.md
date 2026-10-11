@@ -1,15 +1,21 @@
-# Example: driving a Flutter app from an MCP client
+# Example: drive a running Flutter app
 
-A minimal Flutter app with three top-level state objects, then the MCP calls
-that read and mutate them.
+[Promo video](https://github.com/RajKavadia/flutter_ai_whisper/raw/main/flutter-ai-whisper-promo.mp4)
+— MCP connect, state injection, and navigation (also on the
+[package README](../README.md#demo)).
 
-The app is intentionally simple — the point is to show what the tools can reach
-without any instrumentation.
+This is the walkthrough pub.dev shows on the package's Example tab. The app
+below is the smallest one that still exercises every tool: a top-level holder,
+a named route, and a private field on a `State` object.
 
-## 1. The app
+The server does not import Flutter. You run *your* app with `flutter run`, then
+the agent talks to it.
+
+## 1. App
+
+`lib/main.dart`:
 
 ```dart
-// lib/main.dart
 import 'package:flutter/material.dart';
 
 final CounterCubit counterCubit = CounterCubit();
@@ -19,7 +25,7 @@ void main() => runApp(const MyApp());
 class CounterCubit {
   int _count = 0;
   int get count => _count;
-  void setValue(int v) => _count = v; // setter for the agent to call
+  void setValue(int v) => _count = v;
   void increment() => _count++;
 }
 
@@ -29,30 +35,42 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      initialRoute: '/',
       routes: {
         '/': (_) => const HomePage(),
-        '/profile': (_) => const Scaffold(body: Text('Profile')),
+        '/profile': (_) => const Scaffold(body: Center(child: Text('Profile'))),
       },
-      home: const HomePage(),
+      initialRoute: '/',
     );
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _localCounter = 0;
+  static int buildCount = 0;
+
+  @override
   Widget build(BuildContext context) {
+    buildCount++;
     return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text('count: ${counterCubit.count}'),
+            Text('local: $_localCounter'),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: counterCubit.increment,
+              onPressed: () {
+                counterCubit.increment();
+                setState(() => _localCounter++);
+              },
               child: const Text('increment'),
             ),
           ],
@@ -63,97 +81,96 @@ class HomePage extends StatelessWidget {
 }
 ```
 
-Note the explicit `setValue`. Top-level objects are `final`, so the agent cannot
-assign `counterCubit` itself — it calls a method instead.
+`counterCubit` is `final`. The agent calls `setValue`. It cannot assign a new
+cubit. `_localCounter` is private to this library, so the agent must pass
+`libraryUri`.
 
-## 2. Run it
+`Text('count: ...')` does not listen to the cubit. A write that is not inside
+`setState` changes the field and leaves the old number on screen.
+
+## 2. Run
 
 ```console
-flutter run -d chrome
+flutter run
 ```
 
-Copy the line the agent needs:
+Leave that process running. Do not copy the debug-service URI out of the log.
+`connect_to_app` discovers it.
 
-```text
-This app is linked to the debug service: ws://127.0.0.1:56660/RsqcVzTFmw0=/ws
-```
+## 3. Register the server
 
-## 3. Register the MCP server
-
-`.mcp.json`:
+User or project MCP config, after `dart pub global activate flutter_ai_whisper`:
 
 ```json
 {
   "mcpServers": {
     "flutter-ai-whisper": {
-      "command": "dart",
-      "args": ["run", "/abs/path/to/flutter_ai_whisper/bin/main.dart"]
+      "command": "flutter_ai_whisper"
     }
   }
 }
 ```
 
-## 4. Drive it
+## 4. Calls
 
-Connect:
+Connect, with no URI:
 
 ```json
-{ "name": "connect_to_app",
-  "arguments": { "vmUri": "ws://127.0.0.1:56660/RsqcVzTFmw0=/ws" } }
+{ "name": "connect_to_app", "arguments": {} }
 ```
 
-Read state (named explicitly — required on Flutter Web):
+On Flutter Web, name the values. Heap search is unavailable there:
 
 ```json
-{ "name": "list_active_state_holders",
-  "arguments": { "expressions": ["counterCubit.count"] } }
+{
+  "name": "list_active_state_holders",
+  "arguments": { "expressions": ["counterCubit.count"] }
+}
 ```
 
-Mutate:
+Set the cubit and rebuild the page that displays it. Use the library that
+declares `_HomePageState` (here, the root library `package:your_app/main.dart`):
 
 ```json
-{ "name": "inject_state_variable",
-  "arguments": { "expression": "counterCubit.setValue(42)" } }
-```
-
-Navigate:
-
-```json
-{ "name": "trigger_route_navigation",
-  "arguments": { "routePath": "/profile" } }
-```
-
-The app UI updates live between calls.
-
-## 5. Private widget state
-
-`evaluate` targets the app's root library by default, where `_`-prefixed names
-are invisible. Pass `libraryUri` to evaluate inside the declaring library:
-
-```json
-{ "name": "inject_state_variable",
+{
+  "name": "inject_state_variable",
   "arguments": {
-    "libraryUri": "package:my_app/pages/home_page.dart",
-    "expression": "(() { Element? t; void walk(Element e) { if (t != null) return; if (e.widget is HomePage) { t = e; return; } e.visitChildren(walk); } walk(WidgetsBinding.instance.rootElement!); final s = (t as StatefulElement).state as _HomePageState; s.setState(() { s._localCounter = 12; }); return 'ok'; })()"
+    "libraryUri": "package:your_app/main.dart",
+    "expression": "(() { Element? t; void walk(Element e) { if (t != null) return; if (e.widget is HomePage) { t = e; return; } e.visitChildren(walk); } walk(WidgetsBinding.instance.rootElement!); if (t == null) return 'not-found'; final s = (t as StatefulElement).state as _HomePageState; s.setState(() { counterCubit.setValue(42); s._localCounter = 12; }); return 'ok'; })()"
   }
 }
 ```
 
-Note the `walk` helper: it locates the `State` object by matching the widget
-type, which works whatever the widget is named.
+Push a route that `MaterialApp.routes` already contains:
 
-Two rules that save a wasted attempt:
+```json
+{
+  "name": "trigger_route_navigation",
+  "arguments": { "routePath": "/profile" }
+}
+```
 
-- **You can only assign what has a setter.** If the class only exposes
-  `increment()`, call it in a loop instead of assigning.
-- **Plain writes do not update the screen.** Wrap them in `setState`. GetX `Rx`,
-  Riverpod, Bloc and `ChangeNotifier` notify themselves and need nothing extra.
+Read the labels after the next frame:
 
-`setState` rebuilds on the next frame, so poll briefly before checking that the
-view changed. It is also deferred entirely while the page is offstage under
-another route — pop back to it first, or the write will land without repainting.
+```json
+{
+  "name": "inject_state_variable",
+  "arguments": {
+    "expression": "(() { final texts = <String>[]; void walk(Element e) { final w = e.widget; if (w is Text && (w.data ?? '').trim().isNotEmpty) texts.add(w.data!); e.visitChildren(walk); } walk(WidgetsBinding.instance.rootElement!); return texts.join(' | '); })()"
+  }
+}
+```
 
-## Next steps
+On the home route that string includes `count: 42` and `local: 12`. On
+`/profile` it includes `Profile`, and the home `State` does not repaint until
+you pop back.
 
-See `README.md` for Riverpod, Bloc and GetX recipes, the platform support
-matrix, and troubleshooting.
+## 5. What to expect
+
+- A getter with no setter cannot be assigned. Call `setValue` or `increment`.
+- GetX `Rx`, Riverpod, Bloc, and `ChangeNotifier` repaint on their own. This
+  cubit does not.
+- `setState` is deferred while the page sits under another route.
+- Several apps running at once: pass `workspaceFilter` to `connect_to_app`.
+
+Riverpod, Bloc, and GetX recipes are in the package [README](../README.md).

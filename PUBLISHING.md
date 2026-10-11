@@ -13,6 +13,12 @@
 | `analysis_options.yaml` | Lints and strict-casts. |
 | `example/` | Usage walkthrough. |
 
+Not published to pub.dev (see `.pubignore`):
+
+| File | Why |
+| --- | --- |
+| `flutter-ai-whisper-promo.mp4` | README demo video; lives in git for GitHub. Linked from README via the raw GitHub URL. |
+
 ## Before publishing
 
 1. Confirm `pubspec.yaml` still points at the right repository — it is set to

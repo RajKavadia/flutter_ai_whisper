@@ -1,3 +1,6 @@
+/// Finds running Flutter apps through the Dart Tooling Daemon.
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +9,7 @@ import 'package:meta/meta.dart';
 
 /// A Dart Tooling Daemon instance discovered on this machine.
 class DtdInstance {
+  /// Creates a record of one local daemon at [uri].
   const DtdInstance({required this.uri, this.workspaceRoot, this.dartVersion});
 
   /// WebSocket URI of the DTD instance.
@@ -23,6 +27,7 @@ class DtdInstance {
 
 /// A running app discovered through DTD, with its connectable VM Service URI.
 class DiscoveredApp {
+  /// Creates a record of one running app at [vmServiceUri].
   const DiscoveredApp({
     required this.vmServiceUri,
     this.name,
@@ -39,8 +44,10 @@ class DiscoveredApp {
   /// Workspace root of the DTD instance that reported this app.
   final String? workspaceRoot;
 
+  /// Dart version reported for this app, if the daemon included one.
   final String? dartVersion;
 
+  /// JSON map of this app, suitable for tool responses.
   Map<String, Object?> toJson() => {
     'vmServiceUri': vmServiceUri,
     'name': name,

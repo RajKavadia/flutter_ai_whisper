@@ -1,29 +1,54 @@
 # flutter_ai_whisper
 
 An [MCP](https://modelcontextprotocol.io) server that lets an AI coding agent
-inspect and mutate the runtime state of a **running** Flutter app, and drive its
-navigation — over the Dart VM Service, with no code changes to the app.
+**read, change, and navigate a running Flutter app** over the Dart VM Service.
+No Flutter dependency, no test instrumentation, and no edits to the app.
 
-It speaks MCP on `stdio` and exposes five tools. The agent can ask what state
-exists, read and write it, and push routes — then see the app react live.
+Start the app with `flutter run`. Ask the agent to connect. The counter, the
+route, and the widgets update live.
 
----
+[![pub package](https://img.shields.io/pub/v/flutter_ai_whisper.svg)](https://pub.dev/packages/flutter_ai_whisper)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Why
+## Demo
 
-Automated Flutter UI testing usually means either instrumenting the app under
-test, or driving it blind through taps. This server takes a third route: it uses
-the debug protocol the Dart VM already exposes in debug builds, so it works
-against an unmodified app.
+Developer promo: connect, read state, inject (GetX, Bloc, Riverpod), and navigate
+over MCP — no sample app walkthrough.
+
+<video src="flutter-ai-whisper-promo.mp4" controls width="100%">
+  <a href="https://github.com/RajKavadia/flutter_ai_whisper/raw/main/flutter-ai-whisper-promo.mp4">Watch the demo (MP4)</a>
+</video>
+
+On [pub.dev](https://pub.dev/packages/flutter_ai_whisper) the player may not
+embed; [open the video on GitHub](https://github.com/RajKavadia/flutter_ai_whisper/raw/main/flutter-ai-whisper-promo.mp4)
+instead (~5 MB).
+
+```
+MCP client ──stdio──> flutter_ai_whisper ──WebSocket──> Dart VM Service ──> app
+```
+
+## What it is for
+
+Widget tests and integration tests drive the app through taps, or they require
+you to add keys and test hooks first. This server uses the debug protocol the
+Dart VM already exposes, so an agent can:
+
+- list the apps that are running and connect without copying a URI
+- read live state (cubits, notifiers, blocs, GetX controllers, plain objects)
+- change that state by evaluating real Dart inside the app
+- push a named route, with no `navigatorKey` added to the app
+
+It is a **developer tool**, not a Flutter plugin. You do not add it to the
+app's `pubspec.yaml`. You register it with the agent that is editing the app.
 
 ## Requirements
 
-- Dart SDK `^3.8.0` (for the server itself).
-- A Flutter app running in **debug mode** with the VM Service enabled. Both
-  `flutter run` and `flutter run -d chrome` qualify; profile and release builds
-  do not expose it.
-- Obfuscated builds (`--obfuscate --split-debug-info`) hide class names and
-  break heap-based discovery.
+- Dart SDK `^3.8.0` for the server.
+- A Flutter app running in **debug mode**. `flutter run` and
+  `flutter run -d chrome` both qualify.
+- Profile builds, release builds, and obfuscated builds
+  (`--obfuscate --split-debug-info`) do not work. They hide the VM Service or
+  the class names discovery needs.
 
 ## Install
 
@@ -31,33 +56,36 @@ against an unmodified app.
 dart pub global activate flutter_ai_whisper
 ```
 
-Verify:
+Confirm the executable is on your PATH:
 
 ```console
 flutter_ai_whisper --help
 ```
 
-The server communicates over `stdio`, so it must be launched by an MCP client.
-Do not run it interactively and expect output.
+The server speaks MCP on `stdio`. An agent launches it. Running it in a
+terminal by itself produces no interactive session.
 
-## Quick start
+From a clone, skip activation and point the client at the entrypoint:
 
-1. **Start your app in debug mode.**
+```console
+dart run /absolute/path/to/flutter_ai_whisper/bin/main.dart
+```
 
-   ```console
-   flutter run -d chrome
-   ```
+## Register it
 
-2. **Register the server with your MCP client** (below).
+### Cursor
 
-3. Ask the agent to connect. It needs no URI:
+`.cursor/mcp.json` in the app you are working on (or your user MCP config):
 
-   > Connect to the running app, then read my counter.
-
-   Discovery uses the Dart Tooling Daemon, so nothing has to be copied out of
-   the console.
-
-## MCP client configuration
+```json
+{
+  "mcpServers": {
+    "flutter-ai-whisper": {
+      "command": "flutter_ai_whisper"
+    }
+  }
+}
+```
 
 ### Claude Desktop
 
@@ -73,39 +101,9 @@ Do not run it interactively and expect output.
 }
 ```
 
-### opencode
+### VS Code
 
-`~/.config/opencode/opencode.json`:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "flutter-ai-whisper": {
-      "type": "local",
-      "command": ["dart", "run", "/absolute/path/to/flutter_ai_whisper/bin/main.dart"],
-      "enabled": true
-    }
-  }
-}
-```
-
-### Cursor / Claude Code project scope
-
-`.mcp.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "flutter-ai-whisper": {
-      "command": "dart",
-      "args": ["run", "/absolute/path/to/flutter_ai_whisper/bin/main.dart"]
-    }
-  }
-}
-```
-
-### VS Code (`.vscode/mcp.json`)
+`.vscode/mcp.json`:
 
 ```json
 {
@@ -118,112 +116,141 @@ Do not run it interactively and expect output.
 }
 ```
 
-### Pre-connecting at startup
+### Claude Code, or a project-local checkout
 
-If your URI is stable (for example, you always launch the app on a fixed port),
-skip `connect_to_app` by passing it at startup:
+`.mcp.json`:
 
-```console
-flutter_ai_whisper --vm-uri "ws://127.0.0.1:56660/RsqcVzTFmw0=/ws"
+```json
+{
+  "mcpServers": {
+    "flutter-ai-whisper": {
+      "command": "dart",
+      "args": ["run", "/absolute/path/to/flutter_ai_whisper/bin/main.dart"]
+    }
+  }
+}
 ```
+
+### opencode
+
+`~/.config/opencode/opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "flutter-ai-whisper": {
+      "type": "local",
+      "command": ["flutter_ai_whisper"],
+      "enabled": true
+    }
+  }
+}
+```
+
+## Quick start
+
+1. Run the app in debug mode.
+
+   ```console
+   flutter run
+   ```
+
+2. In the agent chat, paste:
+
+   > Connect to the running Flutter app. Read the counter, set it to 42, and
+   > tell me what the screen shows.
+
+3. The agent calls `connect_to_app` with **no arguments**. Discovery goes
+   through the Dart Tooling Daemon, the same way the official Dart MCP server
+   finds a debug session.
+
+Do not paste the `ws://127.0.0.1:PORT/AUTH=/ws` line from the `flutter run`
+console. That path is a per-run auth code. It is stale the moment the app
+restarts. Pass `vmUri` only when discovery finds nothing, which happens when
+the app was not started by `flutter run` or an IDE.
+
+The address printed as the app URL (`http://localhost:52362/`) is the static
+web server. Connecting to it fails with `WebSocketException: HTTP status code:
+200`.
 
 ## Tools
 
+| Tool | What the agent uses it for |
+| --- | --- |
+| `discover_running_apps` | List debug sessions and their VM Service URIs. |
+| `connect_to_app` | Connect. Safe with no arguments. |
+| `list_active_state_holders` | Report live state, or probe expressions you name. |
+| `inject_state_variable` | Evaluate Dart in the app to change state. |
+| `trigger_route_navigation` | Push a named route that the app already registered. |
+
 ### `discover_running_apps`
 
-Lists running apps and their VM Service URIs. Usually you can skip this and call
-`connect_to_app` directly.
-
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `workspaceFilter` | string | no | Substring to match the workspace root, e.g. `sample_app`. |
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `workspaceFilter` | no | Substring of the workspace root, for example `sample_app`, when several apps are running. |
 
 ### `connect_to_app`
 
-Connects to a running app. **All parameters are optional** — call it with no
-arguments and it discovers the app automatically.
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `vmUri` | no | WebSocket URI of one specific app. Omit it to auto-discover. |
+| `workspaceFilter` | no | Substring of the workspace root used during auto-discovery. |
 
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `vmUri` | string | no | Target one specific app by its WebSocket URI. |
-| `workspaceFilter` | string | no | Substring to match the workspace root during auto-discovery. |
-
-Reports which VM Service features are available, since they differ by platform.
-
-### Automatic discovery
-
-Rather than copying a URI out of `flutter run`'s console, the server asks the
-**Dart Tooling Daemon (DTD)** what is running. `flutter run` and the IDEs start
-a DTD instance per workspace and register the app's VM Service with it, so DTD
-already holds the auth-coded WebSocket URI.
-
-This matters because that URI's path segment is a **per-run auth code** — it
-changes every time the app relaunches, so a pasted URI is stale almost
-immediately. It is the same discovery mechanism the official `dart mcp_server`
-uses.
-
-Discovery returns nothing if the app was not started by `flutter run` or an IDE.
-In that case, pass `vmUri` manually using the line `flutter run` printed:
-
-```text
-This app is linked to the debug service: ws://127.0.0.1:56660/RsqcVzTFmw0=/ws
-```
-
-The bare app URL (`http://localhost:52362/`) is the static web server, not the
-VM Service, and will not connect.
+The result also reports which VM features this target implements. Flutter Web
+cannot enumerate the heap. Native debug builds can.
 
 ### `list_active_state_holders`
 
-Reports live state holders, optionally filtered by name.
-
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `filter` | string | no | Case-insensitive substring match on name. |
-| `expressions` | string[] | no | Dart expressions to evaluate and report. |
-| `libraryUri` | string | no | Library to evaluate in, to reach private members. |
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `filter` | no | Case-insensitive substring match on the holder name. |
+| `expressions` | no | Dart expressions to evaluate, such as `counterCubit.count`. Required on Flutter Web. |
+| `libraryUri` | no | Library to evaluate in. Required for private names. |
 
 ### `inject_state_variable`
 
-Mutates runtime state by evaluating Dart inside the app.
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `expression` | one of | One Dart expression, such as `counterCubit.setValue(42)`. |
+| `targetExpression` | with `newValueExpression` | Left-hand side of an assignment. |
+| `newValueExpression` | with `targetExpression` | Right-hand side of an assignment. |
+| `libraryUri` | no | Library to evaluate in. |
 
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `expression` | string | one of | Full Dart statement, e.g. `counterCubit.setValue(42)`. |
-| `targetExpression` | string | with `newValueExpression` | Assignable target. |
-| `newValueExpression` | string | with `targetExpression` | Value expression. |
-| `libraryUri` | string | no | Library to evaluate in. |
+Prefer `expression`. The pair `targetExpression` / `newValueExpression` builds
+`target = value`, and that fails on `final` globals with `Setter not found`.
 
-Prefer `expression`. The `target`/`value` pair builds `target = value`, which
-**fails for `final` globals** with `Setter not found`.
+`evaluate` accepts one expression, not a list of statements. Wrap several
+statements in an immediately invoked function:
+
+```dart
+(() { obj.a = 1; obj.b = 2; return 'done'; })()
+```
 
 ### `trigger_route_navigation`
 
-Pushes a named route.
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `routePath` | yes | Named route, for example `/profile`. |
 
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `routePath` | string | yes | Named route, e.g. `/profile`. |
-
-Walks the element tree to find a `BuildContext` below a `Navigator`, so no
-app-side `navigatorKey` is needed. The route must exist in the app's `routes`
-table — this tool cannot synthesise routes that were never registered.
+The tool walks the element tree until it finds a context under a `Navigator`.
+`Navigator.of` on `rootElement` throws, because that element sits above the
+navigator. The route must already exist in the app's `routes` table (or an
+equivalent `onGenerateRoute`). The tool cannot invent a page that was never
+registered.
 
 ## Platform support
 
-This is the most important thing to know before debugging a failure.
-
-| Capability | Native (desktop/mobile) | Flutter Web |
+| Capability | Android, iOS, desktop | Flutter Web |
 | --- | --- | --- |
 | `evaluate` | yes | yes |
-| `getClassList` + `getInstances` | yes | **no** — `Unknown method` |
-| `rootLib.variables` | yes | **no** — returns empty |
-| `dart:mirrors` | yes | **no** |
-| Route navigation | yes | yes |
+| `getClassList` and `getInstances` | yes | no |
+| Root-library variables | yes | empty |
+| `dart:mirrors` | yes | no |
+| Named-route navigation | yes | yes |
 
-On **Flutter Web**, heap enumeration is impossible, so
-`list_active_state_holders` cannot discover state by itself. Name the state
-explicitly via `expressions`. The practical workflow is to have the agent read
-the app's source, find the top-level state objects, then probe them:
+On Flutter Web, `list_active_state_holders` cannot search the heap. Read the
+app source, then probe the names:
 
 ```json
 {
@@ -234,80 +261,137 @@ the app's source, find the top-level state objects, then probe them:
 }
 ```
 
-On **native** targets, discovery by class-name pattern works, but note that it is
-heuristic: it will miss holders whose names do not match a known pattern and may
-include false positives.
+On native targets, class-name discovery is a heuristic. It looks for names
+containing `Bloc`, `Cubit`, `Notifier`, `Provider`, `Controller`, `Store`,
+`State`, `Manager`, `Model`, or `ViewModel`. Holders outside that list need
+`expressions`.
 
-### Scope and reachability
+## Rules that save a failed call
 
-An expression is evaluated in **exactly one library scope**, and visibility
-follows that library's own `import`/`export` graph. Targeting the wrong library
-gives `CompilationError: Undefined name` even for a perfectly valid object.
+**One expression, one library.** Visibility follows that library's imports and
+exports. The wrong library yields `CompilationError: Undefined name` even when
+the object exists. A barrel file that exports the holder is often why the root
+library can see it.
 
-Dart's `_` privacy is library-scoped and uniform across fields, classes, methods
-and getters. Pass `libraryUri` to evaluate inside the declaring library, or
-private members fail to compile:
+**Private names need `libraryUri`.** `_field`, `_HomePageState`, and
+`_increment` all fail to compile unless evaluation happens in the library that
+declares them:
 
 ```json
-{ "libraryUri": "package:my_app/pages/home_page.dart",
-  "expressions": ["_HomePageState.buildCount.toString()"] }
-```
-
-**You can only reach what the object exposes.** Injection runs real Dart, so the
-public surface is the ceiling:
-
-```dart
-class AppState {
-  int _counter = 0;
-  int get counter => _counter;               // read only
-  void incrementCounter() => _counter++;     // no setter: cannot assign 12
+{
+  "libraryUri": "package:my_app/pages/home_page.dart",
+  "expression": "_localCounter.toString()"
 }
 ```
 
+When the URI does not match, the error lists the app's libraries.
+
+**You can only call what the object exposes.** A getter without a setter cannot
+be assigned. Call the method the class already has:
+
 ```dart
-// impossible: no setter exists
 s.setState(() { for (var i = 0; i < 12; i++) { appState.incrementCounter(); } });
 ```
 
-If a value genuinely needs arbitrary assignment, the app has to expose a setter.
-That is an app change, not a tool limitation.
+**Changing a field does not repaint the screen.** GetX `Rx`, Riverpod, Bloc,
+`ValueNotifier`, and `ChangeNotifier` notify themselves. Plain objects and
+private `State` fields need `setState` around the write. `setState` runs on the
+next frame. If another route is covering that page, the rebuild waits until the
+page is visible again. Pop back first, then read the `Text` widgets in the tree
+to confirm the screen changed. Re-reading the variable only proves the object
+changed.
 
-### Reaching private widget state
+## Recipes
 
-The element-tree walk is the general escape hatch — it reaches any
-`StatefulWidget`'s `State` by matching the widget type, whatever the naming. See
-the example below.
+### Plain object
 
-### Triggering a rebuild
+```json
+{
+  "name": "inject_state_variable",
+  "arguments": { "expression": "counterCubit.setValue(42)" }
+}
+```
 
-`evaluate` mutates objects, which does not by itself update the screen. A plain
-field write leaves the variable changed while the widget still shows the old
-value. Anything without its own change notification needs an explicit rebuild:
+If the widget does not listen to that object, wrap the call in `setState` on
+the `State` that builds the text. See the example below.
+
+### Riverpod
+
+`State` on a notifier is `@protected`, so assign through a method the notifier
+exposes, reached from a `ProviderContainer` the agent can name:
 
 ```json
 {
   "name": "inject_state_variable",
   "arguments": {
-    "libraryUri": "package:my_app/pages/home_page.dart",
-    "expression": "(() { Element? t; void walk(Element e) { if (t != null) return; if (e.widget is HomePage) { t = e; return; } e.visitChildren(walk); } walk(WidgetsBinding.instance.rootElement!); final s = (t as StatefulElement).state as _HomePageState; s.setState(() { counterCubit.setValue(42); }); return 'ok'; })()"
+    "expression": "container.read(counterProvider.notifier).setValue(77)"
   }
 }
 ```
 
-GetX `Rx`, Riverpod state, Bloc events, `ValueNotifier` and `ChangeNotifier`
-notify on their own, so no extra call is needed there.
+Riverpod notifies listeners itself.
 
-Two things to expect: `setState` schedules the rebuild for the **next frame**,
-so it is not visible immediately; and it needs `libraryUri` when the `State`
-class is private.
+### Bloc
 
-Also note `setState` is **deferred entirely when the page is offstage** under
-another route. The write lands and the variable reads back changed, but nothing
-repaints until that element reactivates — so a covered page looks unchanged.
-Pop back to the route before injecting, and poll for the rebuild rather than
-sleeping a fixed amount.
+There is no global registry. Keep a handle when the provider is created, and
+dispatch an event:
 
-Verify against the rendered tree rather than the variable:
+```dart
+late final CounterBloc activeBloc;
+// ...
+BlocProvider(create: (_) => activeBloc = CounterBloc()),
+```
+
+```json
+{
+  "name": "inject_state_variable",
+  "arguments": { "expression": "activeBloc.add(const CounterSet(55))" }
+}
+```
+
+`BlocProvider(create:)` is lazy. Open that route before the first read, or the
+handle is still null.
+
+### GetX
+
+```json
+{
+  "name": "inject_state_variable",
+  "arguments": { "expression": "Get.find<CounterController>().count.value = 9" }
+}
+```
+
+GetX navigation does not need a `BuildContext`:
+
+```json
+{
+  "name": "inject_state_variable",
+  "arguments": { "expression": "Get.toNamed('/profile')" }
+}
+```
+
+### Private widget state
+
+Match the widget in the element tree, cast its `State`, and write inside
+`setState`. Pass `libraryUri` of the file that declares `_HomePageState`.
+
+```dart
+(() {
+  Element? t;
+  void walk(Element e) {
+    if (t != null) return;
+    if (e.widget is HomePage) { t = e; return; }
+    e.visitChildren(walk);
+  }
+  walk(WidgetsBinding.instance.rootElement!);
+  if (t == null) return 'not-found';
+  final s = (t as StatefulElement).state as _HomePageState;
+  s.setState(() { s._localCounter = 12; });
+  return 'ok';
+})()
+```
+
+### Confirm the screen, not the variable
 
 ```dart
 (() {
@@ -322,177 +406,60 @@ Verify against the rendered tree rather than the variable:
 })()
 ```
 
-### Reaching private widget state
+## Prompts that work
 
-Match the widget type in the element tree, cast the `State`, and you have access
-to its private members — provided you also pass `libraryUri` for the library
-that declares it:
+After the server is registered and the app is running:
 
-```dart
-(() {
-  Element? t;
-  void walk(Element e) {
-    if (t != null) return;
-    if (e.widget is HomePage) { t = e; return; }
-    e.visitChildren(walk);
-  }
-  walk(WidgetsBinding.instance.rootElement!);
-  if (t == null) return 'not-found';
-  final s = (t as StatefulElement).state as _HomePageState;
-  s.setState(() { s._localCounter = 12; });   // private field
-  return 'ok';
-})()
-```
+> Connect to the running app and list the state you can see. On web, read the
+> source and probe the top-level holders by name.
 
-Guard on `t == null`: if the widget is not mounted, nothing matches.
+> Set the cart total to 19.99 by calling the method the store already exposes.
+> If the page does not rebuild by itself, do it inside setState, then read the
+> Text widgets to confirm.
 
-## Recipes
+> Open the `/profile` route, then come back and tell me whether the home page
+> rebuilt.
 
-### Plain objects
-
-```json
-{
-  "name": "inject_state_variable",
-  "arguments": { "expression": "counterCubit.setValue(42)" }
-}
-```
-
-### Riverpod
-
-Riverpod's `state` is `@protected`, so you cannot assign it from outside the
-notifier subclass. Call a method on the notifier, reached through the container:
-
-```json
-{
-  "name": "inject_state_variable",
-  "arguments": {
-    "expression": "container.read(counterProvider.notifier).setValue(77)"
-  }
-}
-```
-
-Requires a top-level `ProviderContainer` the agent can name:
-
-```dart
-final container = ProviderContainer();
-```
-
-To read state without a method, override it:
-
-```dart
-container.overrideWith(counterProvider.overrideWith(() => FakeNotifier(99)));
-```
-
-### Bloc
-
-Bloc has **no global registry of instances**. Each lives inside its
-`BlocProvider` in the widget tree, so the agent must be able to name it. Keep a
-handle when you create it:
-
-```dart
-BlocProvider(create: (_) => activeBloc = CounterBloc()),
-```
-
-Write by dispatching an event, not by assigning a field:
-
-```json
-{
-  "name": "inject_state_variable",
-  "arguments": { "expression": "activeBloc.add(const CounterSet(55))" }
-}
-```
-
-Watch out: `BlocProvider(create:)` is **lazy**. The bloc does not exist until
-its route is built, so navigate to that screen first or reads will fail with
-`Unexpected null value`.
-
-### GetX
-
-GetX is the easiest of the three: it keeps a global registry, so controllers
-are reachable by type with no app changes.
-
-```json
-{
-  "name": "inject_state_variable",
-  "arguments": { "expression": "Get.find<CounterController>().count.value = 9" }
-}
-```
-
-GetX navigation needs no context at all:
-
-```json
-{
-  "name": "inject_state_variable",
-  "arguments": { "expression": "Get.toNamed('/profile')" }
-}
-```
-
-### Private members
-
-Dart's `_`-prefix privacy is library-scoped. A private field is invisible when
-you evaluate against the app's root library, even though the object is alive.
-Pass `libraryUri` to evaluate inside the declaring library's scope:
-
-```json
-{
-  "name": "inject_state_variable",
-  "arguments": {
-    "libraryUri": "package:my_app/pages/home_page.dart",
-    "expression": "(() { final s = targetState as _HomePageState; s.setState(() { s._localCounter = 12; }); })()"
-  }
-}
-```
-
-The agent should discover the exact URI from the error message, which lists
-every app library when the URI does not match.
-
-## How it works
-
-```
-MCP client  ──stdio/JSON-RPC──>  flutter_ai_whisper  ──WebSocket──>  Dart VM Service  ──>  app isolate
-```
-
-1. `vmServiceConnectUri` opens a WebSocket to the DDS endpoint.
-2. `getVM` selects the isolate named `main()` and caches its root library.
-3. Tools call `evaluate` against that library (or a named one), then cast the
-   response to `InstanceRef` or `ErrorRef`.
-4. Errors are returned as `isError: true` results rather than thrown, so the
-   agent can react instead of the transport dying.
+A worked counter app, including the private-state case, is in
+[`example/README.md`](example/README.md).
 
 ## Troubleshooting
 
-**`Not connected to a Flutter app`** — call `connect_to_app` first, with the
-current URI.
+| What you see | What to do |
+| --- | --- |
+| `Not connected to a Flutter app` | Call `connect_to_app` with no arguments. |
+| `WebSocketException` and HTTP 200 | You used the app URL. Use discovery, or the `debug service` WebSocket. |
+| HTTP 403 | The auth code is missing or from a previous run. Reconnect with no URI. |
+| `Setter not found` | The target is `final`. Call a method via `expression`. |
+| `Undefined name '_x'` | Pass `libraryUri` of the declaring library. |
+| Empty state list on web | Pass `expressions`. Heap enumeration does not exist on web. |
+| Navigation says the route was rejected | Register that name in the app's route table. |
+| Variable changed, screen did not | Wrap the write in `setState`, or pop back to that route first. |
 
-**`WebSocketException ... HTTP status code: 200`** — you pointed at the static
-web server. Use the `debug service` URI, not the app URL.
-
-**`HTTP status code: 403`** — the URI is missing or has a stale auth code.
-Copy it again from the current `flutter run` output.
-
-**`Setter not found`** — you assigned to a `final`. Use an `expression` that
-calls a setter method instead.
-
-**`CompilationError: Undefined name 'x'`** — the name is not in scope in the
-root library. Either it is private (pass `libraryUri`) or the agent guessed the
-name wrong; read the source.
-
-**`list_active_state_holders` returns nothing** — on Flutter Web you must pass
-`expressions`.
-
-**Navigation reports no route generator** — the route is not in the app's
-`routes` table. This is a correct failure, not a bug.
+Tool failures come back as `isError: true`. They do not drop the MCP session.
+`isError` is nullable: `null` means success.
 
 ## Security
 
-This server executes arbitrary Dart inside your app process, with the app's
-full privileges. It is a **development-only** tool.
+The server evaluates arbitrary Dart inside the app process, with that app's
+privileges. Use it on a debug build you control, on localhost.
 
-- Only ever point it at an app you control, running locally.
-- Do not expose the VM Service port beyond localhost.
-- Never run it against a production build or an untrusted app: anyone who can
-  reach the VM Service can read and overwrite runtime state.
+Do not point it at a production build, a release build, or an app you do not
+trust. Do not expose the VM Service port beyond your machine. Anyone who can
+open that socket can read and overwrite runtime state.
+
+## Development
+
+```console
+dart pub get
+dart analyze
+dart test
+```
+
+Agent-facing rules (connection, privacy, rebuilds, state-management recipes)
+live in [`AGENTS.md`](AGENTS.md). [`llms.txt`](llms.txt) is the same guide for
+other LLM tooling.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

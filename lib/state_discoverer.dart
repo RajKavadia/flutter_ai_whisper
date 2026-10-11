@@ -1,3 +1,6 @@
+/// Heuristic discovery of live state holders in a connected app.
+library;
+
 import 'package:vm_service/vm_service.dart';
 import 'vm_bridge.dart';
 
@@ -14,6 +17,7 @@ import 'vm_bridge.dart';
 class StateDiscoverer {
   final VmBridge _bridge;
 
+  /// Creates a discoverer bound to the connected VM bridge.
   StateDiscoverer(this._bridge);
 
   static const _namePatterns = [
@@ -29,6 +33,10 @@ class StateDiscoverer {
     'ViewModel',
   ];
 
+  /// Returns holders found by class name and by root-library variables.
+  ///
+  /// Both strategies return nothing on Flutter Web. Use [probeExpressions]
+  /// there.
   Future<List<Map<String, dynamic>>> discoverStateHolders() async {
     final holders = <Map<String, dynamic>>[];
     holders.addAll(await _discoverByClassName());

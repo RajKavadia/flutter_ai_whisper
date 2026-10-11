@@ -1,17 +1,31 @@
+/// Connection to one running app over the Dart VM Service.
+library;
+
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 
+/// Owns the VM Service WebSocket and evaluates Dart inside the app isolate.
 class VmBridge {
   VmService? _vmService;
   String? _isolateId;
   String? _rootLibraryId;
   bool _supportsClassList = true;
 
+  /// Whether a VM Service session and an isolate are both selected.
   bool get isConnected => _vmService != null && _isolateId != null;
+
+  /// Whether this isolate implements `getClassList`.
+  ///
+  /// Flutter Web does not, so heap enumeration is unavailable there.
   bool get supportsClassList => _supportsClassList;
+
+  /// WebSocket URI of the current session, or `null` when disconnected.
   String? get connectedUri => _wsUri;
   String? _wsUri;
 
+  /// Opens [wsUri], selects the `main()` isolate, and caches its root library.
+  ///
+  /// Throws a [StateError] when the VM exposes no isolates.
   Future<void> connect(String wsUri) async {
     await disconnect();
     _vmService = await vmServiceConnectUri(wsUri);
@@ -46,6 +60,7 @@ class VmBridge {
     }
   }
 
+  /// Closes the current session and clears cached isolate state.
   Future<void> disconnect() async {
     try {
       await _vmService?.dispose();
@@ -56,6 +71,13 @@ class VmBridge {
     _wsUri = null;
   }
 
+  /// Evaluates [expression] in one library scope.
+  ///
+  /// [libraryUri] selects that library. When it is omitted, evaluation uses
+  /// the app's root library, where private names from other libraries do not
+  /// compile.
+  ///
+  /// Throws a [StateError] when no app is connected.
   Future<Response> evaluate(String expression, {String? libraryUri}) async {
     _ensureConnected();
     return _vmService!.evaluate(
@@ -104,6 +126,8 @@ class VmBridge {
     return (result as InstanceRef).valueAsString;
   }
 
+  /// Returns the isolate's class list, or `null` when the VM does not
+  /// implement `getClassList`.
   Future<ClassList?> getClassList() async {
     _ensureConnected();
     if (!_supportsClassList) return null;
@@ -115,6 +139,11 @@ class VmBridge {
     }
   }
 
+  /// Returns up to [limit] live instances of [classId].
+  ///
+  /// Returns `null` when heap enumeration is unavailable or the call fails.
+  /// [includeSubclasses] includes instances of subclasses when the VM
+  /// supports it.
   Future<InstanceSet?> getInstances(
     String classId,
     int limit, {
@@ -134,6 +163,7 @@ class VmBridge {
     }
   }
 
+  /// Invokes [selector] on [targetId] with [argumentIds].
   Future<Response> invoke(
     String targetId,
     String selector,
@@ -143,11 +173,13 @@ class VmBridge {
     return _vmService!.invoke(_isolateId!, targetId, selector, argumentIds);
   }
 
+  /// Returns the connected isolate.
   Future<Isolate> getIsolate() async {
     _ensureConnected();
     return _vmService!.getIsolate(_isolateId!);
   }
 
+  /// Returns the app's root library.
   Future<Library> getRootLibrary() async {
     _ensureConnected();
     final isolate = await getIsolate();
@@ -155,11 +187,13 @@ class VmBridge {
         as Library;
   }
 
+  /// Returns the VM object identified by [objectId].
   Future<Obj> getObject(String objectId) async {
     _ensureConnected();
     return _vmService!.getObject(_isolateId!, objectId);
   }
 
+  /// VM object id of the app's root library.
   String get rootLibraryId {
     _ensureConnected();
     return _rootLibraryId!;

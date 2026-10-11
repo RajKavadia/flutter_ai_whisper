@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+
+- README **Demo** section with `flutter-ai-whisper-promo.mp4` (git repository
+  only; excluded from the pub tarball via `.pubignore`).
+
+### Changed
+
+- Package and example documentation rewritten for pub.dev: install, MCP client
+  setup, auto-discovery, platform matrix, and state-management recipes.
+- Public libraries documented for dartdoc.
+
 ## 1.1.0
 
 ### Added

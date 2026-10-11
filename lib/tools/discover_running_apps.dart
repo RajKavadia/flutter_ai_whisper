@@ -1,3 +1,6 @@
+/// The `discover_running_apps` MCP tool.
+library;
+
 import 'package:flutter_ai_whisper/discovery.dart';
 import 'package:flutter_ai_whisper/vm_bridge.dart';
 import 'package:mcp_server/mcp_server.dart';

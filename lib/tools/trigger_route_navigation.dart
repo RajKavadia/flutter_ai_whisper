@@ -1,3 +1,6 @@
+/// The `trigger_route_navigation` MCP tool.
+library;
+
 import 'package:flutter_ai_whisper/vm_bridge.dart';
 import 'package:mcp_server/mcp_server.dart';
 import 'package:vm_service/vm_service.dart';
@@ -36,6 +39,10 @@ const _pushViaNavigatorKey = r'''(() {
   }
 })()''';
 
+/// Pushes the named route in [args] `routePath`.
+///
+/// Walks the element tree for a context below a `Navigator`. The route must
+/// already be registered in the app. Returns an error result when it is not.
 Future<CallToolResult> triggerRouteNavigation(
   VmBridge bridge,
   Map<String, dynamic> args,
