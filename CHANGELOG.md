@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+### Changed
+
+- README demo uses a clickable `doc/demo-poster.png` thumbnail so the promo is
+  visible on pub.dev (HTML `<video>` is stripped there; the MP4 stays on GitHub).
+
 ## 1.2.0
 
 ### Added

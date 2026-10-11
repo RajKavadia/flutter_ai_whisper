@@ -2,7 +2,7 @@ name: flutter_ai_whisper
 description: >-
   MCP server that inspects and injects state in a running Flutter app over the
   Dart VM Service, supporting route navigation and Riverpod, Bloc and GetX.
-version: 1.2.0
+version: 1.2.1
 
 repository: https://github.com/RajKavadia/flutter_ai_whisper
 issue_tracker: https://github.com/RajKavadia/flutter_ai_whisper/issues

@@ -12,6 +12,7 @@
 | `AGENT_DOCS.md` | Maintainer map of the agent docs. |
 | `analysis_options.yaml` | Lints and strict-casts. |
 | `example/` | Usage walkthrough. |
+| `doc/demo-poster.png` | README thumbnail; links to the promo MP4 on GitHub. |
 
 Not published to pub.dev (see `.pubignore`):
 

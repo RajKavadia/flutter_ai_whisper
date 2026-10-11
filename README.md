@@ -15,13 +15,19 @@ route, and the widgets update live.
 Developer promo: connect, read state, inject (GetX, Bloc, Riverpod), and navigate
 over MCP — no sample app walkthrough.
 
+pub.dev does not embed HTML video. Click the poster or the link below to open the
+MP4 (hosted on GitHub).
+
+[![Watch the developer demo](doc/demo-poster.png)](https://github.com/RajKavadia/flutter_ai_whisper/raw/main/flutter-ai-whisper-promo.mp4)
+
+**[▶ Watch / download the demo video (MP4, ~5 MB)](https://github.com/RajKavadia/flutter_ai_whisper/raw/main/flutter-ai-whisper-promo.mp4)**
+
+On the [GitHub repository](https://github.com/RajKavadia/flutter_ai_whisper) you
+can also play it inline:
+
 <video src="flutter-ai-whisper-promo.mp4" controls width="100%">
   <a href="https://github.com/RajKavadia/flutter_ai_whisper/raw/main/flutter-ai-whisper-promo.mp4">Watch the demo (MP4)</a>
 </video>
-
-On [pub.dev](https://pub.dev/packages/flutter_ai_whisper) the player may not
-embed; [open the video on GitHub](https://github.com/RajKavadia/flutter_ai_whisper/raw/main/flutter-ai-whisper-promo.mp4)
-instead (~5 MB).
 
 ```
 MCP client ──stdio──> flutter_ai_whisper ──WebSocket──> Dart VM Service ──> app
