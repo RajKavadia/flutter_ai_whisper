@@ -1,8 +1,36 @@
 /// Connection to one running app over the Dart VM Service.
 library;
 
+import 'dart:async';
+
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
+
+/// Whether [error] means the cached isolate is gone and must be selected again.
+///
+/// Flutter Web replaces the `main()` isolate on restart. A later
+/// `reloadSources` call then fails with a collected sentinel instead of
+/// recompiling.
+bool staleIsolateError(Object error) {
+  final text = error.toString();
+  return text.contains('Collected') || text.contains('Unrecognized isolate');
+}
+
+/// Flutter Tools registers `reloadSources` as `sN.reloadSources`.
+///
+/// The raw VM method has no namespace. On the web it does not recompile, so a
+/// source edit stays off the screen until something else hot reloads.
+String? namespacedReloadService(
+  Iterable<({String service, String method})> registrations,
+) {
+  for (final registration in registrations) {
+    if (registration.service == 'reloadSources' &&
+        registration.method.contains('.')) {
+      return registration.method;
+    }
+  }
+  return null;
+}
 
 /// Owns the VM Service WebSocket and evaluates Dart inside the app isolate.
 class VmBridge {
@@ -10,6 +38,9 @@ class VmBridge {
   String? _isolateId;
   String? _rootLibraryId;
   bool _supportsClassList = true;
+  String? _reloadServiceMethod;
+  Future<String?>? _reloadServiceLookup;
+  StreamSubscription<Event>? _serviceSub;
 
   /// Whether a VM Service session and an isolate are both selected.
   bool get isConnected => _vmService != null && _isolateId != null;
@@ -30,25 +61,41 @@ class VmBridge {
     await disconnect();
     _vmService = await vmServiceConnectUri(wsUri);
     _wsUri = wsUri;
+    await _bindMainIsolate();
+  }
 
-    final vm = await _vmService!.getVM();
-    final isolates = vm.isolates ?? [];
+  /// Selects the current `main()` isolate.
+  ///
+  /// The id cached at [connect] is stale after a web restart. Reload and
+  /// reassemble both call this so they target the isolate that is alive now.
+  Future<void> _bindMainIsolate() async {
+    final service = _vmService;
+    if (service == null) {
+      throw StateError(
+        'Not connected to a Flutter app. Call the connect_to_app tool with no '
+        'arguments.',
+      );
+    }
+    final vm = await service.getVM();
+    final isolates = vm.isolates ?? const <IsolateRef>[];
     if (isolates.isEmpty) {
       throw StateError('VM Service connected but exposed no isolates.');
     }
-
-    // Prefer the isolate backed by the app's main() entrypoint.
     final mainIso = isolates.firstWhere(
-      (i) => i.name == 'main()',
+      (isolate) => isolate.name == 'main()',
       orElse: () => isolates.first,
     );
-    _isolateId = mainIso.id;
-
-    final isolate = await _vmService!.getIsolate(_isolateId!);
+    final id = mainIso.id;
+    if (id == null) {
+      throw StateError('The main isolate has no id.');
+    }
+    final previous = _isolateId;
+    _isolateId = id;
+    final isolate = await service.getIsolate(id);
     _rootLibraryId = isolate.rootLib!.id;
-
-    // Flutter Web (dart2js/DDC) does not implement getClassList.
-    _supportsClassList = await _detectClassListSupport();
+    if (previous != id) {
+      _supportsClassList = await _detectClassListSupport();
+    }
   }
 
   Future<bool> _detectClassListSupport() async {
@@ -62,9 +109,13 @@ class VmBridge {
 
   /// Closes the current session and clears cached isolate state.
   Future<void> disconnect() async {
+    await _serviceSub?.cancel();
+    _serviceSub = null;
     try {
       await _vmService?.dispose();
     } catch (_) {}
+    _reloadServiceMethod = null;
+    _reloadServiceLookup = null;
     _vmService = null;
     _isolateId = null;
     _rootLibraryId = null;
@@ -80,6 +131,7 @@ class VmBridge {
   /// Throws a [StateError] when no app is connected.
   Future<Response> evaluate(String expression, {String? libraryUri}) async {
     _ensureConnected();
+    await _bindMainIsolate();
     return _vmService!.evaluate(
       _isolateId!,
       await targetIdFor(libraryUri),
@@ -171,6 +223,79 @@ class VmBridge {
   ) async {
     _ensureConnected();
     return _vmService!.invoke(_isolateId!, targetId, selector, argumentIds);
+  }
+
+  /// Calls a VM service extension on the connected isolate.
+  Future<Response> callServiceExtension(String method) async {
+    _ensureConnected();
+    await _bindMainIsolate();
+    return _vmService!.callServiceExtension(method, isolateId: _isolateId);
+  }
+
+  /// Invokes Flutter's registered `reloadSources` service when the tool
+  /// registered one, and the VM method otherwise.
+  ///
+  /// Flutter Tools compiles the updated libraries and hot reloads. That is
+  /// what makes the following method calls run the new source. The service
+  /// name is `sN.reloadSources`; `getVM` does not list it, so it is read from
+  /// the Service stream, which replays registrations to a new subscriber.
+  Future<Response> callReloadSources() async {
+    _ensureConnected();
+    await _bindMainIsolate();
+    final method = await _flutterReloadMethod();
+    try {
+      return await _invokeReload(method);
+    } on SentinelException catch (error) {
+      if (!staleIsolateError(error)) rethrow;
+      await _bindMainIsolate();
+      return _invokeReload(method);
+    }
+  }
+
+  Future<Response> _invokeReload(String method) {
+    return _vmService!.callServiceExtension(
+      method,
+      isolateId: _isolateId,
+      args: <String, dynamic>{'force': false, 'pause': false},
+    );
+  }
+
+  /// The Flutter Tools `reloadSources` method, or the raw VM method.
+  Future<String> _flutterReloadMethod() async {
+    final cached = _reloadServiceMethod;
+    if (cached != null) return cached;
+    _reloadServiceLookup ??= _captureReloadService();
+    final method = await _reloadServiceLookup;
+    return method ?? 'reloadSources';
+  }
+
+  Future<String?> _captureReloadService() async {
+    final registrations = <({String service, String method})>[];
+    final done = Completer<void>();
+    _serviceSub = _vmService!.onServiceEvent.listen((event) {
+      if (event.kind != EventKind.kServiceRegistered) return;
+      final service = event.service;
+      final method = event.method;
+      if (service == null || method == null) return;
+      registrations.add((service: service, method: method));
+      final reload = namespacedReloadService(registrations);
+      if (reload != null && !done.isCompleted) {
+        _reloadServiceMethod = reload;
+        done.complete();
+      }
+    });
+    try {
+      await _vmService!.streamListen(EventStreams.kService);
+    } on RPCError {
+      // A second subscriber does not get the registration replay.
+    }
+    if (!done.isCompleted) {
+      await done.future.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
+    }
+    return _reloadServiceMethod;
   }
 
   /// Returns the connected isolate.

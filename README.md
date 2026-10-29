@@ -180,6 +180,41 @@ The address printed as the app URL (`http://localhost:52362/`) is the static
 web server. Connecting to it fails with `WebSocketException: HTTP status code:
 200`.
 
+## DevTools extension panel
+
+The MCP server is stdio-only. For a **Screen / Logic / Run** panel inside Dart
+DevTools, add the sibling package `devtools/` (`flutter_ai_whisper_devtools`)
+as a **dev dependency** on the app you debug:
+
+```yaml
+dev_dependencies:
+  flutter_ai_whisper_devtools:
+    path: ../devtools   # adjust path to this repo's devtools/ folder
+```
+
+Enable it in `devtools_options.yaml` next to the app's `pubspec.yaml`:
+
+```yaml
+description: This file stores settings for Dart & Flutter DevTools.
+documentation: https://docs.flutter.dev/tools/devtools/extensions#configure-extension-enablement-states
+extensions:
+  - flutter_ai_whisper_devtools: true
+```
+
+Run the app with `flutter run`, open DevTools, then **Extensions →
+flutter_ai_whisper**. Reload the Screen list, pick a `State`, assign a
+primitive literal, and use **Refresh** to reassemble the tree.
+
+Rebuild the embedded web assets after changing the panel:
+
+```console
+cd devtools
+dart run devtools_extensions build_and_copy --source=. --dest=extension/devtools
+```
+
+The example app under `example/` is already wired with the path dependency and
+`devtools_options.yaml`.
+
 ## Tools
 
 | Tool | What the agent uses it for |
@@ -189,6 +224,9 @@ web server. Connecting to it fails with `WebSocketException: HTTP status code:
 | `list_active_state_holders` | Report live state, or probe expressions you name. |
 | `inject_state_variable` | Evaluate Dart in the app to change state. |
 | `trigger_route_navigation` | Push a named route that the app already registered. |
+| `start_change_refresh` | After analysis is clean, reload changed classes and call their methods. |
+| `refresh_changed_members` | Run that refresh once and report the class and method names. |
+| `stop_change_refresh` | Stop the refresh interval. |
 
 ### `discover_running_apps`
 
@@ -244,6 +282,25 @@ The tool walks the element tree until it finds a context under a `Navigator`.
 navigator. The route must already exist in the app's `routes` table (or an
 equivalent `onGenerateRoute`). The tool cannot invent a page that was never
 registered.
+
+### `start_change_refresh`
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `packageRoot` | yes | Absolute path of the Flutter package to analyze. |
+| `intervalSeconds` | no | Seconds between passes. Defaults to 10. |
+
+Call `connect_to_app` first. The first pass records the class and method bodies and does not call them. On a later edit, the server runs `dart analyze`. When that report has no errors, it calls Flutter's `reloadSources` service, then `ext.flutter.reassemble`, then each changed zero-argument method. `State` methods run inside `setState`. Methods with required parameters are named in the log and are not called. Results arrive as MCP log notifications.
+
+### `refresh_changed_members`
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `packageRoot` | no | Required only when the watch is not already running. |
+
+### `stop_change_refresh`
+
+Stops the interval. Takes no parameters.
 
 ## Platform support
 

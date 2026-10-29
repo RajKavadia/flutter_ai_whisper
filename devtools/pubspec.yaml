@@ -1,0 +1,32 @@
+name: flutter_ai_whisper_devtools
+description: >-
+  DevTools extension panel for flutter_ai_whisper. Lists the current screen's
+  state, edits one primitive field, refreshes the view, and probes logic
+  objects over the VM Service connection DevTools already holds.
+version: 0.1.0
+publish_to: none
+
+repository: https://github.com/RajKavadia/flutter_ai_whisper
+issue_tracker: https://github.com/RajKavadia/flutter_ai_whisper/issues
+homepage: https://github.com/RajKavadia/flutter_ai_whisper
+
+environment:
+  sdk: ^3.8.0
+  flutter: ">=3.32.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  devtools_app_shared: ^0.5.1
+  devtools_extensions: ^0.5.1
+  vm_service: ^15.3.0
+
+dev_dependencies:
+  flutter_ai_whisper:
+    path: ..
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

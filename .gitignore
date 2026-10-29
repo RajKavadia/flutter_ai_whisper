@@ -2,6 +2,7 @@
 .dart_tool/
 .packages
 build/
+!devtools/extension/devtools/build/
 pubspec.lock
 
 # IDE

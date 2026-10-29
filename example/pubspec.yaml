@@ -9,3 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+dev_dependencies:
+  flutter_ai_whisper_devtools:
+    path: ../devtools
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter

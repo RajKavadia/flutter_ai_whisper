@@ -2,10 +2,15 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:flutter_ai_whisper/refresh/analysis_gate.dart';
+import 'package:flutter_ai_whisper/refresh/change_refresh.dart';
+import 'package:flutter_ai_whisper/refresh/package_sources.dart';
+import 'package:flutter_ai_whisper/refresh/refresh_client.dart';
 import 'package:flutter_ai_whisper/tools/connect_to_app.dart';
 import 'package:flutter_ai_whisper/tools/discover_running_apps.dart';
 import 'package:flutter_ai_whisper/tools/inject_state_variable.dart';
 import 'package:flutter_ai_whisper/tools/list_active_state_holders.dart';
+import 'package:flutter_ai_whisper/tools/start_change_refresh.dart';
 import 'package:flutter_ai_whisper/tools/trigger_route_navigation.dart';
 import 'package:flutter_ai_whisper/vm_bridge.dart';
 import 'package:mcp_server/mcp_server.dart';
@@ -53,9 +58,15 @@ Future<void> main(List<String> arguments) async {
   }
 
   final serverResult = await McpServer.createAndStart(
-    config: McpServer.simpleConfig(
+    config: const McpServerConfig(
       name: 'flutter_ai_whisper',
       version: '1.2.1',
+      capabilities: ServerCapabilities(
+        tools: ToolsCapability(),
+        resources: ResourcesCapability(),
+        prompts: PromptsCapability(),
+        logging: LoggingCapability(),
+      ),
     ),
     transportConfig: TransportConfig.stdio(),
   );
@@ -207,7 +218,79 @@ Future<void> main(List<String> arguments) async {
         handler: (a) => triggerRouteNavigation(bridge, a),
       );
 
+      final watch = ChangeRefreshWatch(
+        controller: ChangeRefreshController(
+          readSources: PackageSources().read,
+          analyze: DartAnalyzeGate().analyze,
+          client: VmRefreshClient(bridge),
+        ),
+        onReport: (message, {required bool isError}) {
+          server.sendLog(
+            isError ? McpLogLevel.error : McpLogLevel.info,
+            message,
+            logger: 'change_refresh',
+          );
+        },
+      );
+
+      server.addTool(
+        name: 'start_change_refresh',
+        description:
+            'Watches a Flutter package. Every interval (default 10 seconds), '
+            'if Dart analysis reports no errors and a class or method body '
+            'changed, loads that library into the running app and then '
+            'evaluates only the changed class method. State methods run '
+            'inside setState. Connect with connect_to_app first. The '
+            'first pass only records a baseline.',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'packageRoot': {
+              'type': 'string',
+              'description':
+                  'Absolute path of the Flutter package that contains lib/.',
+            },
+            'intervalSeconds': {
+              'type': 'integer',
+              'description': 'How often to analyze. Defaults to 10.',
+            },
+          },
+          'required': ['packageRoot'],
+        },
+        handler: (a) => startChangeRefresh(watch, a),
+      );
+
+      server.addTool(
+        name: 'refresh_changed_members',
+        description:
+            'Runs one change-refresh pass now. Uses the watched package, or '
+            'packageRoot when the watch is not running. Does nothing until '
+            'analysis reports no errors. Returns the changed class and method '
+            'names and the result of each call.',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'packageRoot': {
+              'type': 'string',
+              'description':
+                  'Absolute path of the Flutter package. Optional while '
+                  'start_change_refresh is running.',
+            },
+          },
+          'required': [],
+        },
+        handler: (a) => refreshChangedMembers(watch, a),
+      );
+
+      server.addTool(
+        name: 'stop_change_refresh',
+        description: 'Stops the change-refresh interval started earlier.',
+        inputSchema: {'type': 'object', 'properties': {}, 'required': []},
+        handler: (_) => stopChangeRefresh(watch),
+      );
+
       server.onDisconnect.listen((_) {
+        unawaited(watch.stop());
         unawaited(bridge.disconnect());
         exit(0);
       });

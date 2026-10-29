@@ -1,0 +1,17 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - web/**
+  language:
+    strict-casts: true
+    strict-raw-types: true
+
+linter:
+  rules:
+    - avoid_empty_else
+    - directives_ordering
+    - prefer_final_locals
+    - unawaited_futures
+    - unnecessary_await_in_return
