@@ -182,38 +182,26 @@ web server. Connecting to it fails with `WebSocketException: HTTP status code:
 
 ## DevTools extension panel
 
-The MCP server is stdio-only. For a **Screen / Logic / Run** panel inside Dart
-DevTools, add the sibling package `devtools/` (`flutter_ai_whisper_devtools`)
-as a **dev dependency** on the app you debug:
+Optional **Screen / Logic / Run** UI inside Dart DevTools lives in
+[`devtools/`](devtools/README.md) (`flutter_ai_whisper_devtools`). Setup,
+usage, platform limits, tests, and rebuild steps are documented there.
+
+Quick enablement:
 
 ```yaml
 dev_dependencies:
   flutter_ai_whisper_devtools:
-    path: ../devtools   # adjust path to this repo's devtools/ folder
+    path: ../devtools
 ```
 
-Enable it in `devtools_options.yaml` next to the app's `pubspec.yaml`:
-
 ```yaml
-description: This file stores settings for Dart & Flutter DevTools.
-documentation: https://docs.flutter.dev/tools/devtools/extensions#configure-extension-enablement-states
+# devtools_options.yaml (next to pubspec.yaml)
 extensions:
   - flutter_ai_whisper_devtools: true
 ```
 
-Run the app with `flutter run`, open DevTools, then **Extensions →
-flutter_ai_whisper**. Reload the Screen list, pick a `State`, assign a
-primitive literal, and use **Refresh** to reassemble the tree.
-
-Rebuild the embedded web assets after changing the panel:
-
-```console
-cd devtools
-dart run devtools_extensions build_and_copy --source=. --dest=extension/devtools
-```
-
-The example app under `example/` is already wired with the path dependency and
-`devtools_options.yaml`.
+Run in debug, open DevTools → **Extensions → flutter_ai_whisper**. The
+[`example/`](example/) app includes both files.
 
 ## Tools
 
