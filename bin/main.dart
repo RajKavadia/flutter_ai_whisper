@@ -60,7 +60,7 @@ Future<void> main(List<String> arguments) async {
   final serverResult = await McpServer.createAndStart(
     config: const McpServerConfig(
       name: 'flutter_ai_whisper',
-      version: '1.2.1',
+      version: '1.3.0',
       capabilities: ServerCapabilities(
         tools: ToolsCapability(),
         resources: ResourcesCapability(),

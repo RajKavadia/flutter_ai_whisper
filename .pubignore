@@ -1,2 +1,10 @@
 # Promo video ships with the git repo for README/GitHub; not the pub tarball.
 flutter-ai-whisper-promo.mp4
+
+# DevTools extension prebuild and Flutter build output (large; rebuild locally).
+devtools/extension/devtools/build/
+devtools/build/
+build/
+
+# Local doc not required on pub.dev package page.
+doc/kotlin-runtime-mcp.md

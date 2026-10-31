@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.3.0
+
+### Added
+
+- `start_change_refresh`, `refresh_changed_members`, and `stop_change_refresh`
+  MCP tools — when analysis is clean, hot-reload changed library bodies and
+  call changed zero-argument methods (with `State` methods wrapped in
+  `setState`).
+- DevTools extension package under `devtools/` (`flutter_ai_whisper_devtools`):
+  Screen / Logic / Run panel for primitive field writes over the VM Service.
+  Documented in README and `devtools/README.md`.
+- Runnable `example/lib/main.dart` with web and Windows targets, plus
+  `devtools_options.yaml` for the extension.
+- `doc/kotlin-runtime-mcp.md` — notes for Kotlin/Android runtime MCP parity.
+
+### Changed
+
+- `VmBridge` gains reload/reassemble helpers used by change-refresh.
+- README links to the DevTools extension setup guide.
+
 ## 1.2.1
 
 ### Changed
