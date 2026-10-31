@@ -1,0 +1,5 @@
+name: flutter_ai_whisper
+issueTracker: https://github.com/RajKavadia/flutter_ai_whisper/issues
+version: 0.1.0
+materialIconCodePoint: '0xe8b8'
+requiresConnection: true

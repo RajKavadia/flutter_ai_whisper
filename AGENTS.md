@@ -74,6 +74,17 @@ Known failure modes:
 | `list_active_state_holders` | Report live state; or probe given `expressions`. |
 | `inject_state_variable` | Evaluate Dart to mutate state. |
 | `trigger_route_navigation` | Push a named route. |
+| `start_change_refresh` | When analysis is clean, hot reload and call changed methods. |
+| `refresh_changed_members` | Run one clean-analysis refresh and report what was called. |
+| `stop_change_refresh` | Stop the refresh interval. |
+
+## DevTools extension
+
+Optional Flutter web panel in `devtools/` (`flutter_ai_whisper_devtools`). It uses
+the VM Service DevTools already holds — not the MCP stdio process. Enable with a
+path `dev_dependency` and `devtools_options.yaml`; rebuild with
+`dart run devtools_extensions build_and_copy --source=. --dest=extension/devtools`
+from `devtools/`. See [README.md](README.md#devtools-extension-panel).
 
 Full parameter tables are in `README.md`.
 

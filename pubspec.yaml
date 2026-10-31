@@ -25,6 +25,7 @@ environment:
   sdk: ^3.8.0
 
 dependencies:
+  analyzer: ^14.5.0
   args: ^2.5.0
   dtd: ^4.0.0
   mcp_server: ^2.2.4
